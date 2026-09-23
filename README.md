@@ -28,9 +28,22 @@ npm run lint:file -- <文件>   # 编辑期只查改动文件
 | `scripts/guard-rules.mjs` | 护栏自身：删规则、关 tsconfig 严格开关、加 `@ts-ignore` 都会让 gate 失败 |
 | `.github/workflows/gate.yml` | CI 跑的就是 `npm run gate`，与本地完全同一条命令 |
 
-**本地 hook 是主要拦截手段。** 这个仓库是私有 + 免费账号，GitHub 的分支保护与 ruleset 都不可用，
-所以服务端不能机械地拦住"红 gate 合入"——它靠 [`AGENTS.md`](./AGENTS.md) 里的契约：
-**CI 红时不得合并。**（仓库升级为 Pro 或转为公开后，可把 `gate` / `pr-budget` 设为必需检查。）
+**服务端强制已开启。** 这个仓库是**公开**的，所以 GitHub ruleset 可用（私有 + 免费账号时不可用）。
+`main` 分支的 `guardrails` ruleset 要求：
+
+1. 一律走 PR（不能直推默认分支）
+2. `gate` 与 `pr-budget` 两个检查必须通过
+3. 禁止删除默认分支、禁止强推
+
+也就是说 **CI 红的时候 GitHub 会直接拒绝合并** —— 实测：
+
+```
+$ gh pr merge 1 --squash
+X Pull request ywh555hhh/jp-reader#1 is not mergeable: the base branch policy prohibits the merge.
+```
+
+三层防线各管一段：本地 hook（秒级）→ `npm run gate`（本地与 CI 同一条命令）→ ruleset（服务端兼不可绕过）。
+管理员保留紧急绕过权（ruleset 的 bypass actor），但**agent 一律走 PR**。
 
 ## 项目哲学
 

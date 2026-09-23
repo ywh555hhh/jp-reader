@@ -53,45 +53,28 @@ npm run lint:file -- <文件>  # 编辑期只查改动文件（秒级）
 | 删 / 改松 ast-grep 规则、depcruise 规则、tsconfig 严格开关 | 这是"改考卷"而不是"改答案" | `check:guardrails-config-not-weakened` |
 | 直接手改 `baseline.metrics` 把数字调大 | 预算上调必须留理由，不能静默发生 | PR 模板 + review |
 | 用 `git commit --no-verify` / `git push --no-verify` 跳过 hook | 跳过 gate 等于这次改动没有被检查 | `pre-commit` / `pre-push` |
-| **在 CI 红的情况下合并 PR** | 这是本仓库唯一靠"人/agent 自觉"的环节——GitHub 的分支保护和 ruleset 在私有免费仓库上不可用，服务端拦不住你。规矩必须自己守：合并前先看 `gh pr checks <n>` | 只有你的自律（见下方“为什么这里要靠契约”）|
+| **在 CI 红的情况下合并 PR** | 服务端已强制：`main` 的 ruleset 要求走 PR 且 `gate`/`pr-budget` 必须通过，GitHub 会直接拒绝 | ruleset（服务端）|
 | 用当前时间当持久化主键 | 毫秒级时间戳批量写入必然撞 id，是静默数据损坏 | `astgrep:jp-no-date-as-identity` |
 | 写空的 `catch {}` | 吞掉的异常应该留下痕迹 | `astgrep:jp-no-empty-catch` |
 | 在渲染层按规则/类型 id 做 `switch` | 一旦渲染层认识具体 id，"改配置就生效"的承诺就断了 | `astgrep:jp-no-ruleid-switch` |
 | 为了"让测试过"而改测试 | 测试是规格，不是障碍 | review |
 | 一次 PR 里做多个不相关的概念 | 屎山来自"一次大改"，不可评审的 diff 等于没有评审 | `pr-budget` |
 
-### 为什么这里要靠契约，而不是靠服务端
+### 服务端强制（这个仓库是公开的，所以有）
 
-这个仓库是**私有仓库 + 免费个人账号**。GitHub 的分支保护和 ruleset 都需要 Pro：
+`main` 分支上有 `guardrails` ruleset，要求：走 PR、`gate` 与 `pr-budget` 必须通过、禁止删除与强推。
+**CI 红的时候 GitHub 会拒绝合并**（不是靠自觉）：
 
 ```
-$ gh api -X PUT repos/ywh555hhh/jp-reader/branches/master/protection ...
-{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":403}
+$ gh pr merge <n> --squash
+X Pull request is not mergeable: the base branch policy prohibits the merge.
 ```
 
-所以：
+仍然要靠你自己的那一条：**管理员有紧急绕过权**（ruleset 的 bypass actor，防止"CI 自己坏了却改不了"）。
+请只在应急时用，并且不要在绕过时改变规则本身（那是另一个概念：改约束要写 ADR）。
 
-- `.github/CODEOWNERS` 是**装饰性的**（没有分支保护就不会触发 code owner review）。
-- `gate` / `pr-budget` 只能作为**可见信号**（CI 会红、PR 上会有 ×），不能机械拦住合并。
-- 真正的拦截在本地：`npm run setup` 装的 `pre-commit` / `pre-push`。
-- 升级为 GitHub Pro（或把仓库转为公开）后，把两个检查设为必需即可：
-
-```bash
-gh api -X POST repos/ywh555hhh/jp-reader/rulesets --input - <<'JSON'
-{
-  "name": "guardrails", "target": "branch", "enforcement": "active",
-  "bypass_actors": [{ "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }],
-  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "required_status_checks",
-      "parameters": { "required_status_checks": [{ "context": "gate" }, { "context": "pr-budget" }] } },
-    { "type": "pull_request", "parameters": { "required_approving_review_count": 0 } }
-  ]
-}
-JSON
-```
+`.github/CODEOWNERS` 已存在，但 ruleset 没要求 code owner 批准（单人项目，自己批不了自己的 PR）。
+需要时把 ruleset 的 `require_code_owner_review` 改成 true 即可。
 
 ## 该做，但很容易忘
 

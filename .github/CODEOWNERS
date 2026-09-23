@@ -1,9 +1,8 @@
 # 护栏文件必须由仓库所有者 review。
 #
-# ⚠ 当前是装饰性的：这个仓库是私有 + 免费账号，没有分支保护 / ruleset，
-#   因此 code owner review 根本不会触发（实测 branch protection 返回 403）。
-#   一旦升级为 Pro 或转为公开，把 gate / pr-budget 设为必需检查，这份文件就自动生效。
-#   在那之前，真正的拦截在本地 hook（npm run setup）与 AGENTS.md 的契约。
+# 仓库已公开、main 上已有 guardrails ruleset，所以这份文件会出现在 PR 的 review 请求里。
+# ⚠ 但 ruleset 目前**没有**要求 code owner 批准（require_code_owner_review = false）——
+#   单人项目自己批不了自己的 PR。要改成强制，把 ruleset 那项设为 true 即可。
 #
 # 保留它的理由：内容零成本，且它准确表达了"改这里需要单独评审"的意图；
 # 理由：这些文件定义"什么算违规"。让它们和业务代码一起被随手改掉，

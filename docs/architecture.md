@@ -117,7 +117,7 @@ texts/                     课文
 | 规则自身 | 改 ast-grep 规则时 | `rules/ast-grep-rules/rule-tests/` 里的 valid / invalid 用例 | 保证"收窄或放宽规则"这件事被测试过，而不是无人察觉 |
 | 运行期 | gate 期（需先编译） | `npm run test:unit`（`tests/collection.test.mjs`） | **静态规则看不见的东西**：主键唯一性、旧数据迁移、落盘格式。修 #1 时正是这一层抓出了"每行被 trim 掉行尾制表符 → 10 列被当成 9 列 → 所有行列错位" |
 | gate 期 | CI / 每个 PR | `npm run gate` | 唯一权威判定；CI 与本地跑的是同一条命令 |
-| 服务端（分支保护 / ruleset） | 合并前 | —— | **不可用**：私有仓库 + 免费账号需要 GitHub Pro。因此"CI 红不得合并"目前是契约（`AGENTS.md`），不是机制 |
+| 服务端（ruleset） | 合并前 | `gate` / `pr-budget` + 要求走 PR + 禁止删除/强推 | **已开启**（仓库公开后 ruleset 可用）。CI 红时 GitHub 直接拒绝合并；管理员保留紧急绕过权 |
 
 **为什么规则要分这两类**：pi-lens 只把规则的 `rule` 部分喂给 ast-grep 引擎，它不处理 `files:` / `ignores:` 这类路径条件。所以带路径豁免的约束（"除了 provider.ts 之外不许 import https"）必须写成 depcruise 规则或 metric，不能写成 ast-grep 规则——否则它在编辑期会对着合法代码一直报警，很快就会被无视。
 
