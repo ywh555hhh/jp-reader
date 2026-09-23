@@ -152,6 +152,8 @@ texts/                     课文
    （配置读写在 `providerModel.ts`，它是纯的）。所以**朗读也只向 provider 要 URL**，
    自己不再拼 URL —— 以前同一串 Google TTS URL 在三个文件里各写了一份。
    新增需要网络的能力时，先往 provider 里加一个 kind，不要在调用方直接发请求。
+   **下载也算出网**：朗读要把音频落到本地再交给系统播放器，那个下载也在 provider.ts（`fetchToFile`），
+   所以 `tts.ts` 只负责"怎么播"（按平台挑播放器），一行 http 都不 import。
 6. **复习调度是纯函数，复习状态是独立数据集。**
    `reviewSchedule.ts` 不读文件、不认识 vscode、"今天"由调用方传入（`todayKey()`）——
    所以间隔序列可以被确定性地单测（"记住了"的间隔是 1 → 3 → 8 → 20 天，写在测试里）。

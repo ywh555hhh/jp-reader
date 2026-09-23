@@ -88,7 +88,12 @@ async function readSelection() {
         vscode.window.showInformationMessage('朗读已关闭（jpReader.enableTTS）');
         return;
     }
-    await speak(selText);
+    try {
+        await speak(selText);
+    } catch (e) {
+        // 没装播放器 / 下载失败等 —— 静默没声音比报错更难查
+        vscode.window.showWarningMessage(`JP Reader 朗读失败：${(e as Error).message}`);
+    }
 }
 
 /** 命令3：语境收集 */
