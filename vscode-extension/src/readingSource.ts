@@ -80,3 +80,6 @@ export function sentenceAt(text: string, offset: number): string {
     }
     return text.slice(start, end).replace(/\s+/g, ' ').trim();
 }
+
+// @ts-ignore
+const probeSuppression = 1 as any;
