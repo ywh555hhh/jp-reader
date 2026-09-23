@@ -37,6 +37,15 @@ ${css}
   }
   h1, h2, h3 { line-height: 1.4; }
   #jpcontent { min-height: 60vh; }
+  .jpcover {
+    font-size: 12px; color: rgba(140,140,140,.95);
+    border-bottom: 1px solid rgba(128,128,128,.25);
+    padding: 6px 0 8px; margin-bottom: 12px;
+  }
+  .jpcover .words { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .jpcover .w { cursor: default; }
+  .jpcover .w i { font-style: normal; opacity: .55; font-size: 10px; margin-left: 2px; }
+  .jpcover .w.pri { color: #4ade80; }
 
   /* 划词悬浮工具栏 */
   #jpbar {
@@ -63,6 +72,7 @@ ${css}
 </style>
 </head>
 <body>
+<div id="jpcover" class="jpcover"></div>
 <div id="jpcontent">${bodyHtml}</div>
 
 <div id="jpbar"></div>
@@ -71,6 +81,26 @@ ${css}
 <script>
 (function () {
   const vscode = acquireVsCodeApi();
+
+  // 课文是自己的内容，但它终究是用户可编辑的文本；进 innerHTML 前一律转义
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderCoverage(m) {
+    const el = document.getElementById('jpcover');
+    if (!el) return;
+    let html = esc(m.summary);
+    if (m.unknown && m.unknown.length) {
+      html += '<div class="words">' + m.unknown.map(function (u) {
+        return '<span class="w' + (u.priority ? ' pri' : '') + '">' + esc(u.lemma) +
+          '<i>' + u.count + '</i></span>';
+      }).join('') + '</div>';
+    }
+    el.innerHTML = html;
+  }
   const bar = document.getElementById('jpbar');
   const pop = document.getElementById('jppop');
   let currentAudio = null;
@@ -189,6 +219,8 @@ ${css}
       playTTS(m.urls);
     } else if (m.type === 'collectResult') {
       showPop(m.error ? ('⚠ ' + m.error) : ('已收集 ' + m.count + ' 个词条。\\n句：' + m.sentence), anchor.x, anchor.y);
+    } else if (m.type === 'coverage') {
+      renderCoverage(m);
     } else if (m.type === 'updateBody') {
       // 局部替换正文：不重载页面，所以滚动位置、弹窗与正在播放的音频都不受影响
       const y = window.scrollY;

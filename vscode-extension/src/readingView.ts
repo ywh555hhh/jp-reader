@@ -1,8 +1,12 @@
 import * as vscode from 'vscode';
+import * as kuromoji from 'kuromoji';
+import { RuleEngineData } from './dataLoader';
 import * as fs from 'fs';
 import * as path from 'path';
 import MarkdownIt from 'markdown-it';
 import { toJpTokens } from './ruleEngine';
+import { analyzeCoverage, countLemmas, summarize } from './coverage';
+import { collectCoverageInputs } from './coverageInputs';
 import { buildMarkdownItPlugin } from './mdPlugin';
 import { buildSourceIndex, sentenceAt } from './readingSource';
 import { loadingHtml, wrapHtml } from './readingViewHtml';
@@ -84,6 +88,32 @@ export async function openReadingView(context: vscode.ExtensionContext): Promise
     await render();
 }
 
+/**
+ * 计算并推送覆盖率：阅读视图顶部那行"本课 N 词 ｜ 见过 X% ｜ 生词 M"。
+ * 与命令面板用的是同一套纯计算与同一份输入，所以两处结论必然一致。
+ */
+function postCoverage(rawText: string, tokenizer: kuromoji.Tokenizer, engineData: RuleEngineData): void {
+    if (!readingSession.panel) {
+        return;
+    }
+    const lemmas = toJpTokens(tokenizer.tokenize(rawText), engineData).map((t) => t.lemma);
+    const inputs = collectCoverageInputs(
+        engineData.dataRoot,
+        engineData.rules.map((rule) => rule.lemmaSet)
+    );
+    const report = analyzeCoverage(
+        countLemmas(lemmas),
+        inputs.known,
+        inputs.mastered,
+        inputs.priority
+    );
+    readingSession.panel.webview.postMessage({
+        type: 'coverage',
+        summary: summarize(report),
+        unknown: report.unknown.slice(0, 24),
+    });
+}
+
 /** 数据文件（规则/词库）变了之后，宿主可以调它让阅读视图重渲染 */
 export function refreshReadingView(): void {
     if (readingSession.panel && readingSession.docUri) {
@@ -116,10 +146,12 @@ async function render(): Promise<void> {
     if (!readingSession.ready) {
         readingSession.panel.webview.html = wrapHtml(bodyHtml, sharedCss(extensionDirPath()));
         readingSession.ready = true;
+        postCoverage(rawText, tokenizer, ensureData());
         return;
     }
     // 局部更新正文：保留滚动位置、弹窗与正在播放的音频
     readingSession.panel.webview.postMessage({ type: 'updateBody', html: bodyHtml });
+    postCoverage(rawText, tokenizer, ensureData());
 }
 
 /**

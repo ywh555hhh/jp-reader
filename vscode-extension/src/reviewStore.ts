@@ -80,7 +80,8 @@ export function loadReviewStates(dataRoot: string): ReviewStore {
 export function saveReviewStates(dataRoot: string, states: Map<string, ReviewState>): void {
     const file = reviewStatePath(dataRoot);
     const rows = [...states.values()]
-        .sort((a, b) => a.lemma.localeCompare(b.lemma))
+        // 码点序：文件内容应当只由数据决定，不受运行环境的排序规则影响
+        .sort((a, b) => (a.lemma < b.lemma ? -1 : a.lemma > b.lemma ? 1 : 0))
         .map((s) =>
             [
                 s.lemma,
