@@ -34,6 +34,7 @@ export function webviewHtml(): string {
   .blank { background: var(--vscode-editor-selectionBackground); border-radius: 4px; padding: 0 6px; }
   .reveal { font-size: 16px; margin-top: 10px; }
   .rev-actions { margin-top: 14px; }
+  .rev-actions.grades { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
   .rev-progress { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 8px; }
   ruby { ruby-align: center; }
   rt { font-size: 0.55em; color: var(--vscode-descriptionForeground); }
@@ -50,6 +51,7 @@ export function webviewHtml(): string {
     <div id="wordbook-list"></div>
   </div>
   <div id="view-review" style="display:none">
+    <div class="head" id="review-stats"></div>
     <div class="review-box" id="review-box"></div>
   </div>
   <div id="view-settings" style="display:none">
@@ -90,7 +92,7 @@ export function webviewHtml(): string {
       const cls = 'b-'+st;
       html += '<div class="card">';
       html += '<div class="lemma-row"><span class="lemma">'+esc(g.lemma)+'</span><span class="badge '+cls+'">'+label(st)+'</span></div>';
-      html += '<div class="meta">'+esc(g.wtype||'')+' ｜ '+esc(g.pos||'')+' ｜ '+g.entries.length+' 语境</div>';
+      html += '<div class="meta">'+esc(g.wtype||'')+' ｜ '+esc(g.pos||'')+' ｜ '+g.entries.length+' 语境'+(g.dueText?(' ｜ '+esc(g.dueText)):'')+'</div>';
       for(const e of g.entries){
         html += '<div class="ctx">'+esc(e.sentence)+'<div class="src">'+esc(e.source)+' · '+esc(e.timestamp.slice(0,10))+'</div></div>';
         html += '<input class="note" data-id="'+e.id+'" data-key="note" value="'+escAttr(e.note)+'" placeholder="笔记…">';
@@ -130,32 +132,57 @@ export function webviewHtml(): string {
     }
   });
 
-  // ---- review ----
+  // ---- review（间隔重复：每个词有自己的下次到期日） ----
   function startReview(){ vscode.postMessage({type:'reviewStart'}); }
   let review = null;
+  let stats = null;
+
+  function renderStats(){
+    const el = $('review-stats');
+    if(!el) return;
+    if(!stats){ el.textContent=''; return; }
+    el.textContent = '待复习 '+stats.due+' ｜ 新词 '+stats.fresh+' ｜ 今日已复习 '+stats.reviewedToday+' ｜ 共 '+stats.total;
+  }
+
   function renderReview(item){
-    if(!item){ $('review-box').innerHTML='<div class="empty">暂无复习词条。</div>'; return; }
+    if(!item){
+      $('review-box').innerHTML='<div class="empty">现在没有到期要复习的词。<br>继续读课文、收集生词，到期的会自动出现在这里。</div>';
+      renderStats();
+      return;
+    }
     const progress = item.done + ' / ' + item.total;
     $('review-box').innerHTML =
-      '<div class="rev-progress">'+progress+'</div>'+
+      '<div class="rev-progress">'+progress+(item.dueText?(' ｜ '+esc(item.dueText)):'')+'</div>'+
       '<div class="review-sentence">'+item.sentenceHidden+'</div>'+
       '<div class="reveal" id="reveal"></div>'+
-      '<div class="rev-actions">'+
-        '<button id="rev-reveal">显示答案</button> '+
-        '<button id="rev-ok">记住了</button> '+
-        '<button id="rev-no">忘了</button>'+
+      '<div class="rev-actions"><button id="rev-reveal">显示答案</button></div>'+
+      '<div class="rev-actions grades" id="rev-grades" style="display:none">'+
+        '<button data-grade="again">忘了</button>'+
+        '<button data-grade="hard">模糊</button>'+
+        '<button data-grade="good">记住了</button>'+
+        '<button data-grade="easy">太简单</button>'+
       '</div>';
-    $('rev-reveal').onclick = ()=>{ $('reveal').innerHTML = esc(item.lemma)+' <span class="meta">'+esc(item.reading||'')+' ｜ '+esc(item.wtype||'')+'</span>'; };
-    $('rev-ok').onclick = ()=>{ vscode.postMessage({type:'reviewAnswer', ok:true}); };
-    $('rev-no').onclick = ()=>{ vscode.postMessage({type:'reviewAnswer', ok:false}); };
+    $('rev-reveal').onclick = ()=>{
+      $('reveal').innerHTML = esc(item.lemma)+' <span class="meta">'+esc(item.reading||'')+' ｜ '+esc(item.wtype||'')+'</span>';
+      $('rev-grades').style.display = '';
+      $('rev-reveal').style.display = 'none';
+    };
+    $('rev-grades').querySelectorAll('button').forEach((b)=>{
+      b.onclick = ()=>{ vscode.postMessage({type:'reviewAnswer', grade: b.getAttribute('data-grade')}); };
+    });
   }
 
   // ---- messages from extension ----
   window.addEventListener('message', (ev)=>{
     const msg = ev.data;
-    if(msg.type==='data'){ groups = msg.groups; renderWordbook(); }
-    else if(msg.type==='reviewItem'){ review = msg.item; renderReview(review); }
+    if(msg.type==='data'){ groups = msg.groups; stats = msg.stats; renderWordbook(); renderStats(); }
+    else if(msg.type==='reviewItem'){ review = msg.item; renderReview(review); renderStats(); }
     else if(msg.type==='reviewEmpty'){ renderReview(null); }
+    else if(msg.type==='reviewDone'){
+      renderStats();
+      $('review-box').innerHTML='<div class="empty">本次复习 '+msg.reviewed+' 条。'+
+        '<br>'+(stats?('待复习 '+stats.due+' ｜ 新词 '+stats.fresh):'')+'</div>';
+    }
     else if(msg.type==='settings'){ renderSettings(msg); }
   });
 

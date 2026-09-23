@@ -74,7 +74,10 @@ X Pull request ywh555hhh/jp-reader#1 is not mergeable: the base branch policy pr
   - 官方 Markdown 预览高亮（通过 markdown-it 插件注入）
   - **独立阅读视图**：自建 Webview，划词悬浮工具栏（朗读/查词/翻译/AI讲解/语境收集）
 - **语境收集**：选中词 + 完整原句 + 来源路径 → 写入 `my_collection.tsv`，自动变琥珀色高亮
-- **单词本 + 语境复习**：侧边面板，按 lemma 聚合所有出现过的句子；复习模式隐藏目标词，在上下文里回忆
+- **单词本 + 间隔重复复习**：侧边面板按 lemma 聚合所有出现过的句子；
+  复习出题时隐藏目标词、只给原句，答完给出四档评分（忘了 / 模糊 / 记住了 / 太简单），
+  每个词按自己的下次到期日排队 —— 到期的先来，不足时按 `jpReader.newWordsPerDay` 补新词。
+  面板顶部显示「待复习 / 新词 / 今日已复习」，单词本里每个词也会标出「明天复习 / 3 天后复习」
 - **Provider 架构**：翻译/朗读/AI讲解 可插拔，支持 `builtin` / `http` / `command`（Python 脚本）三种来源
 
 ## 目录结构
@@ -126,7 +129,7 @@ jp-reader/                        # 本仓库（公开）：只有代码
 cd vscode-extension
 npm install
 npx vsce package --allow-missing-repository
-code --install-extension jp-reader-0.2.0.vsix --force
+code --install-extension jp-reader-0.3.0.vsix --force
 ```
 
 ### 使用
