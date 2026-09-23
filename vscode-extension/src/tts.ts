@@ -1,17 +1,23 @@
 import { execFile } from 'child_process';
+import { existsSync, unlinkSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { callProvider } from './appContext';
+import { fetchToFile } from './provider';
+import { missingPlayerHint, pickPlayer, PlayerCommand } from './audioPlayer';
 
 /**
  * 日语朗读。
  *
- * ⚠ 这个模块**只负责"怎么播"**：音频 URL 一律由 provider 层给出
- * （出网只有一个出口，见否命题 A2）。以前这里自己拼 Google TTS 的 URL，
- * 于是同一串 URL 在三个文件里各写了一份（provider / tts / webview 内联脚本）。
+ * 职责边界（两条否命题一起管着）：
+ *   · 音频 URL 由 provider 给出，**下载也走 provider**（A2：出网只有一个出口）
+ *   · 本模块只负责"怎么播"：按句切分 → 下载到临时目录 → 交给系统播放器
  *
- * 播放方式：把每段 mp3 下载到临时目录 → Windows WinMM MCI 依次播放（play wait 阻塞播完）。
- * 系统没有日语 SAPI 也能用；网络失败时提示。
+ * 播放器按平台自动挑（`audioPlayer.ts`）：
+ *   macOS   afplay（系统自带）
+ *   Windows PowerShell + WinMM MCI（系统自带，且能阻塞到播完）
+ *   Linux   mpv / ffplay / sox play / paplay，哪个装了用哪个
+ * 一个都没有时**抛错并给出安装建议** —— 静默没声音比报错更难查。
  */
 
 /** 按句末标点切分，控制单段长度（Google TTS 单次约 180 字以内）。仅供本模块使用。 */
@@ -56,13 +62,40 @@ export async function resolveTtsUrls(text: string): Promise<string[]> {
     return urls;
 }
 
+/** 命令是否存在：直接在 PATH 上找，不起子进程、不缓存（本模块保持无状态） */
+function commandExists(command: string): boolean {
+    const exts = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : [''];
+    for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+        if (!dir) {
+            continue;
+        }
+        for (const ext of exts) {
+            if (existsSync(path.join(dir, command + ext))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function run(command: string, args: string[]): Promise<void> {
+    return new Promise((resolve) => {
+        execFile(command, args, { timeout: 120000 }, () => resolve());
+    });
+}
+
+/** 用系统播放器顺序播放（每段播完再播下一段） */
+async function playWith(player: PlayerCommand, files: string[]): Promise<void> {
+    for (const file of files) {
+        await run(player.command, player.args(file));
+    }
+}
+
 /**
- * 生成 PowerShell 脚本：下载每段 mp3 → MCI 依次播放。
- * 整个流程在一个 powershell 进程里跑完，避免多次冷启动。
+ * Windows：PowerShell + WinMM MCI。
+ * 这里不再自己下载（下载已经由 provider 完成），所以脚本只管播本地文件。
  */
-function buildScript(urls: string[]): string {
-    const tmpDir = os.tmpdir();
-    // C# MCI P/Invoke
+function buildWindowsScript(files: string[]): string {
     const cs = `
 using System;
 using System.Runtime.InteropServices;
@@ -72,39 +105,74 @@ public class Mci {
   public static extern int mciSendString(string command, StringBuilder buffer, int bufferSize, IntPtr callback);
 }
 `;
-    let lines: string[] = [
-        `Add-Type -TypeDefinition @'`,
-        cs.trim(),
-        `'@`,
-    ];
-    urls.forEach((url, i) => {
-        const file = path.join(tmpDir, `jptts_${Date.now()}_${i}.mp3`);
-        const safeFile = file.replace(/'/g, "''");
-        lines.push(`try {`);
+    const lines = [`Add-Type -TypeDefinition @'`, cs.trim(), `'@`];
+    files.forEach((file, i) => {
+        const safe = file.replace(/'/g, "''");
         lines.push(
-            `  Invoke-WebRequest -Uri '${url.replace(/'/g, "''")}' -Headers @{'User-Agent'='Mozilla/5.0'} -OutFile '${safeFile}' -TimeoutSec 15`
+            `[Mci]::mciSendString("open \"${safe}\" type mpegvideo alias jptts${i}", $null, 0, [IntPtr]::Zero) | Out-Null`
         );
-        lines.push(`} catch { exit 1 }`);
-        lines.push(`[Mci]::mciSendString("open \\"${safeFile}\\" type mpegvideo alias jptts${i}", $null, 0, [IntPtr]::Zero) | Out-Null`);
-        lines.push(`[Mci]::mciSendString("play jptts${i} wait", $null, 0, [IntPtr]::Zero) | Out-Null`);
+        lines.push(
+            `[Mci]::mciSendString("play jptts${i} wait", $null, 0, [IntPtr]::Zero) | Out-Null`
+        );
         lines.push(`[Mci]::mciSendString("close jptts${i}", $null, 0, [IntPtr]::Zero) | Out-Null`);
-        lines.push(`Remove-Item '${safeFile}' -ErrorAction SilentlyContinue`);
     });
     return lines.join('\n');
 }
 
+function playWithWindows(files: string[]): Promise<void> {
+    return new Promise((resolve) => {
+        execFile(
+            'powershell.exe',
+            ['-NoProfile', '-NonInteractive', '-Command', buildWindowsScript(files)],
+            { timeout: 120000 },
+            () => resolve()
+        );
+    });
+}
+
+/** 下载每一段到临时目录（失败时抛出，由调用方提示） */
+async function downloadChunks(urls: string[]): Promise<string[]> {
+    const files: string[] = [];
+    for (let i = 0; i < urls.length; i += 1) {
+        const file = path.join(os.tmpdir(), `jptts_${process.pid}_${Date.now()}_${i}.mp3`);
+        await fetchToFile(urls[i], file);
+        files.push(file);
+    }
+    return files;
+}
+
+function cleanup(files: string[]): void {
+    for (const file of files) {
+        try {
+            unlinkSync(file);
+        } catch {
+            /* 临时文件删不掉不该影响朗读 */
+        }
+    }
+}
+
+/**
+ * 朗读一段文本（编辑器命令用）。
+ * 出错时抛异常，调用方负责给用户一句人话 —— 这里不认识 vscode。
+ */
 export async function speak(text: string): Promise<void> {
     const urls = await resolveTtsUrls(text);
     if (urls.length === 0) {
         return;
     }
-    const script = buildScript(urls);
-    return new Promise((resolve) => {
-        execFile(
-            'powershell.exe',
-            ['-NoProfile', '-NonInteractive', '-Command', script],
-            { timeout: 60000 },
-            () => resolve()
-        );
-    });
+
+    const files = await downloadChunks(urls);
+    try {
+        if (process.platform === 'win32') {
+            await playWithWindows(files);
+            return;
+        }
+        const player = pickPlayer(process.platform, commandExists);
+        if (!player) {
+            throw new Error(missingPlayerHint(process.platform));
+        }
+        await playWith(player, files);
+    } finally {
+        cleanup(files);
+    }
 }

@@ -1,11 +1,13 @@
 import * as http from 'http';
 import * as https from 'https';
-import { execFile } from 'child_process';
 import * as fs from 'fs';
+import { atomicWriteBuffer } from './atomicFile';
 import * as path from 'path';
 import { buildHttpBody, DEFAULT_RESPONSE_PATH } from './providerModel';
+import { makeCommand } from './providerCommand';
 import {
     KindConfig,
+    Provider,
     ProviderInput,
     ProviderKind,
     ProviderOptionConfig,
@@ -29,12 +31,6 @@ import {
  *   http     用户自己的 HTTP 服务（支持 promptTemplate / bodyTemplate / responsePath）
  *   command  用户写的脚本（stdin/stdout JSON）
  */
-
-interface Provider {
-    id: string;
-    kind: ProviderKind;
-    invoke(input: ProviderInput): Promise<ProviderOutput>;
-}
 
 // ---------- 内置实现 ----------
 
@@ -163,37 +159,46 @@ function httpRequest(
     });
 }
 
-// ---------- command provider（外部 Python/Node 脚本）----------
-
-function makeCommand(id: string, kind: ProviderKind, cfg: ProviderOptionConfig): Provider {
-    return {
-        id,
-        kind,
-        invoke(input: ProviderInput): Promise<ProviderOutput> {
-            return new Promise((resolve, reject) => {
-                const payload = JSON.stringify({ text: input.text, context: input.context || {}, kind });
-                const proc = execFile(
-                    cfg.command || 'python',
-                    cfg.args || [],
-                    { timeout: 30000, maxBuffer: 1024 * 1024 },
-                    (err, stdout, stderr) => {
-                        if (err) {
-                            reject(new Error(`命令插件错误: ${err.message} ${stderr.slice(0, 200)}`));
-                            return;
-                        }
-                        try {
-                            const j = JSON.parse(stdout.trim());
-                            resolve({ content: j.content ?? String(j), audioUrl: j.audioUrl, meta: j.meta });
-                        } catch {
-                            resolve({ content: stdout.trim().slice(0, 500) });
-                        }
+/**
+ * 把 URL 下载到本地文件。
+ *
+ * 为什么放在这里：**下载也是出网**（否命题 A2 管的是"出网只有一个出口"，
+ * 不只是"构造请求体"）。朗读需要把音频落到本地再交给系统播放器，
+ * 所以 tts.ts 只负责播、不 import node:http(s)。
+ */
+export function fetchToFile(url: string, dest: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const isHttps = u.protocol === 'https:';
+        const req = (isHttps ? https : http).get(
+            {
+                hostname: u.hostname,
+                port: u.port || (isHttps ? 443 : 80),
+                path: u.pathname + u.search,
+                headers: { 'User-Agent': 'Mozilla/5.0' },
+            },
+            (res) => {
+                if (res.statusCode && res.statusCode >= 400) {
+                    reject(new Error(`下载音频失败（HTTP ${res.statusCode}）`));
+                    return;
+                }
+                // 句子级的音频只有几十到几百 KB：先缓冲再原子写，
+                // 而不是 createWriteStream 直写 —— 否则就绕过了"写盘只有一个模块"（A9/A20）
+                const chunks: Buffer[] = [];
+                res.on('data', (d) => chunks.push(Buffer.from(d)));
+                res.on('end', () => {
+                    try {
+                        atomicWriteBuffer(dest, Buffer.concat(chunks));
+                        resolve();
+                    } catch (e) {
+                        reject(new Error(`写入音频失败: ${(e as Error).message}`));
                     }
-                );
-                proc.stdin?.write(payload);
-                proc.stdin?.end();
-            });
-        },
-    };
+                });
+                res.on('error', (e) => reject(new Error(`下载音频失败: ${e.message}`)));
+            }
+        );
+        req.on('error', (e) => reject(new Error(`下载音频失败: ${e.message}`)));
+    });
 }
 
 // ---------- 工厂 ----------

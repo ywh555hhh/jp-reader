@@ -24,6 +24,13 @@ export interface ProviderOutput {
 
 export type ProviderType = 'builtin' | 'command' | 'http';
 
+/** Provider 的运行时形态（provider.ts 与 providerCommand.ts 共用） */
+export interface Provider {
+    id: string;
+    kind: ProviderKind;
+    invoke(input: ProviderInput): Promise<ProviderOutput>;
+}
+
 export interface ProviderOptionConfig {
     type: ProviderType;
     /** builtin 时选哪个内置实现（google_translate / google_tts / openai_compatible） */

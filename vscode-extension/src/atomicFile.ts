@@ -17,13 +17,31 @@ import { basename, dirname, join } from 'path';
  * 这样"唯一允许写盘的模块"这件事在规则层面是显式的，而不是靠豁免清单。
  */
 export function atomicWrite(file: string, content: string): void {
+    writeAtomically(file, content, 'utf-8');
+}
+
+/**
+ * 二进制内容（例如朗读用的音频）也走同一套原子写。
+ *
+ * @public 给 provider.ts 的 fetchToFile 用 —— 下载到临时文件同样是"写盘"，
+ * 不该因为"它只是缓存"就绕过唯一写入模块（A9/A20 管的是"写盘只有一处"，不是"只有数据文件算写盘"）。
+ */
+export function atomicWriteBuffer(file: string, data: Buffer): void {
+    writeAtomically(file, data);
+}
+
+function writeAtomically(file: string, content: string | Buffer, encoding?: BufferEncoding): void {
     const dir = dirname(file);
     const tmp = join(dir, `.${basename(file)}.${process.pid}.${Date.now()}.tmp`);
 
     let fd: number | null = null;
     try {
         fd = openSync(tmp, 'w');
-        writeFileSync(fd, content, 'utf-8');
+        if (typeof content === 'string') {
+            writeFileSync(fd, content, encoding ?? 'utf-8');
+        } else {
+            writeFileSync(fd, content);
+        }
         // 先落盘再改名：否则崩溃时可能 rename 了一个内容还在页缓存里的临时文件
         fsyncSync(fd);
         closeSync(fd);
