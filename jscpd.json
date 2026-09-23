@@ -1,0 +1,10 @@
+{
+  "path": ["vscode-extension/src"],
+  "format": ["typescript"],
+  "minTokens": 60,
+  "minLines": 8,
+  "reporters": ["json"],
+  "output": ".reports/jscpd",
+  "absolute": false,
+  "ignore": ["**/*.d.ts", "**/node_modules/**"]
+}

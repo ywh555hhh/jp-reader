@@ -1,0 +1,56 @@
+name: gate
+
+# CI 跑的就是开发者本地跑的那一条命令（npm run gate）。
+# 这里刻意不做"CI 专用检查"——两套检查必然漂移，然后 agent 就会在
+# "本地过了 CI 挂了" 的来回里烧掉大量预算。
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 安装工具链（仓库根目录）
+        run: npm ci
+
+      - name: 安装扩展依赖
+        run: npm --prefix vscode-extension ci
+
+      - name: npm run gate
+        run: npm run gate
+
+  pr-budget:
+    # 名字必须是 ASCII：它要被写成必需检查的 context（一旦仓库升级为 Pro / 转为公开）。
+    # 不加 if 条件：push 事件上脚本自己会把"非 PR 场景"判为成功退出，
+    # 保证这个检查在任何事件下都有状态——否则它一旦成为必需检查，PR 会永远卡住。
+    name: pr-budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 检查单次改动的规模
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/pr-budget.sh

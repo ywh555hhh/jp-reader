@@ -1,0 +1,12 @@
+# jp-no-empty-catch 的语义测试。
+# 关键：带注释的 catch 是允许的（"写明为什么可以吞掉"），只有花括号里什么都没有才算违规。
+id: jp-no-empty-catch
+valid:
+  - "try { risky(); } catch (e) { log(e); }"
+  - "try { risky(); } catch { /* swallow: 词表文件可选，缺失时按空集合处理 */ }"
+  - "try { risky(); } catch (e) { return false; }"
+  - "promise.catch(() => undefined);"
+invalid:
+  - "try { risky(); } catch {}"
+  - "try { risky(); } catch (e) {}"
+  - "try { risky(); } catch {\n}"

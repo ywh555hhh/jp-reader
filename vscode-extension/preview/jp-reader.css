@@ -1,0 +1,27 @@
+/*
+ * JP Reader —— 预览视图与阅读视图共用的**结构性**样式。
+ *
+ * 这个文件里故意没有任何具体规则的配色。
+ * 规则的颜色 / 字重来自 rules_config.json，由 mdPlugin 翻译成 span 上的内联 style
+ * （这正是"改 rules_config.json 就生效、不用改代码"成立的原因，见否命题 A5）。
+ * 这里只负责结构：悬停反馈、未命中规则的默认外观、振假名排版。
+ *
+ * 也刻意不在这里写死任何 `jp-<rule-id>` 类：类名由 cssClassOf() 生成，
+ * 是留给用户在自己 CSS 里进一步定制的钩子，不是样式的来源。
+ */
+
+.jp {
+    border-radius: 2px;
+}
+
+.jp:hover {
+    background-color: rgba(128, 128, 128, 0.18);
+    cursor: pointer;
+}
+
+/* 振假名注音 */
+.jp ruby rt {
+    font-size: 0.55em;
+    color: rgba(150, 150, 150, 0.9);
+    font-weight: 400;
+}

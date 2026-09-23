@@ -1,0 +1,42 @@
+{
+  "translate": {
+    "active": "google",
+    "options": {
+      "google": {
+        "type": "builtin"
+      },
+      "my_http_service": {
+        "type": "http",
+        "url": "https://example.invalid/v1/chat/completions",
+        "model": "your-model",
+        "apiKeySecret": "jpReader.example",
+        "responsePath": "choices.0.message.content",
+        "promptTemplate": "把{text}翻译成简体中文，只输出译文"
+      },
+      "my_python": {
+        "type": "command",
+        "command": "python",
+        "args": ["path/to/translate.py"]
+      }
+    }
+  },
+  "speak": {
+    "active": "google_tts",
+    "options": {
+      "google_tts": {
+        "type": "builtin"
+      }
+    }
+  },
+  "explain": {
+    "active": "off",
+    "options": {
+      "openai_compatible": {
+        "type": "builtin",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "model": "gpt-4o-mini",
+        "apiKeySecret": "jpReader.openai"
+      }
+    }
+  }
+}

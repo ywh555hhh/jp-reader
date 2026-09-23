@@ -1,0 +1,42 @@
+id: jp-no-ruleid-switch
+language: TypeScript
+severity: warning
+message: "渲染层不得对 rule.id 做 switch / 字符串比较 —— 样式必须由 rules_config.json 的 style 字段驱动"
+note: |
+  否命题 A5（docs/architecture.md）。
+
+  为什么：规则引擎的承诺是"改 rules_config.json 就能定义新规则，不用改代码"。
+  一旦渲染层用 rule.id 做分支，这个承诺就只对代码里硬编码过的那几个 id 成立，
+  新规则在预览里会静默失效（既不报错，也没有样式）。
+
+  正确做法：把规则模型里的 style 直接渲染成 span 的 class 或内联样式，
+  渲染层不认识任何具体的规则 id。
+
+  例：
+    ❌  switch (rule.id) { case 'wago_p99': return 'jp-wago'; ... }
+    ❌  rule.id === 'wago_p99' ? 'jp-wago' : 'jp-mark'
+    ✅  `<span class="jp ${cssClassOf(rule.id)}" style="${styleAttr(rule.style)}">`
+
+  这条规则存在存量违规（已冻结并挂 issue，见 baseline/guardrails-baseline.json）。
+
+  ⚠ 规则只盯 **rule 对象的 id**（即字面的 `rule.id`），不是任何 `.id`。
+  原因：`.id` 是极普通的写法（`e.id === id` 是按主键匹配记录，完全正当），
+  把规则写成"任何 `.id` 参与分支"会大量误报——而误报的规则很快会被所有人（包括 agent）
+  学会忽略，那比没有规则更糟。这个过度匹配真实发生过一次，是写 #1 的修复代码时被棘轮抓出来的。
+  如果将来规则对象换了变量名，请把它加进下面的模式并补上 rule-tests 用例。
+rule:
+  any:
+    - kind: switch_statement
+      has:
+        field: value
+        pattern: rule.id
+        stopBy: end
+    # 只抓「比较」，不抓拼接：'jp-' + rule.id 是合法的数据驱动写法，
+    # rule.id === 'wago_p99' 才是把渲染层绑到具体 id 上。
+    - kind: binary_expression
+      all:
+        - has:
+            field: operator
+            regex: "^(===|!==|==|!=)$"
+        - has:
+            pattern: rule.id

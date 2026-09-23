@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["smoke_*.js"],
+  "project": ["src/**/*.ts"],
+  "ignoreDependencies": [
+    "@types/markdown-it"
+  ]
+}

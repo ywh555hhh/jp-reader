@@ -1,0 +1,15 @@
+# jp-no-indexof-position-lookup 的语义测试。
+# 规则的范围是刻意的启发式：只抓"名字看起来在定位句子/位置"的函数里的 indexOf。
+# 这就是为什么 valid 里必须留一个"函数名不含 sentence/locate/offset/position 的 indexOf"——
+# 它证明规则没有过度扩大到所有 indexOf。
+id: jp-no-indexof-position-lookup
+valid:
+  # 名字匹配，但没有用 indexOf 反查
+  - "function extractSentenceFromDoc(fullText: string, offset: number): string { return fullText.slice(offset, offset + 5); }"
+  # 用了 indexOf，但不在"定位句子"的函数里（例如判断包含关系）
+  - "function findToken(tokens: string[], surface: string): number { return tokens.indexOf(surface); }"
+  - "const hasWago = (list: string[], lemma: string) => list.indexOf(lemma) >= 0;"
+invalid:
+  - "function extractSentenceFromDoc(fullText: string, surface: string): number { const idx = fullText.indexOf(surface); return idx; }"
+  - "const locateSurface = (fullText: string, surface: string) => fullText.indexOf(surface);"
+  - "function sentenceStart(doc: string, word: string): number { return doc.indexOf(word); }"

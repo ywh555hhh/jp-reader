@@ -1,0 +1,20 @@
+# 规则自身的测试。改动 jp-no-date-as-identity.yml 的匹配条件后必须跑：
+#   npx ast-grep test
+# valid 里的写法必须**不被**命中，invalid 里的必须被命中。
+# 没有这份文件，收紧或放宽规则都是在无人察觉的情况下改约束（见否命题 A14）。
+id: jp-no-date-as-identity
+valid:
+  # 时间戳当普通字段是允许的——这正是修复 #1 之后的写法
+  - "const record = { id: randomUUID(), timestamp: new Date().toISOString() };"
+  - "const ts = new Date().toISOString();"
+  - "const entry = { timestamp: Date.now() };"
+  - "const createdAt = Date.now();"
+  - "const id = randomUUID();"
+  # 名字像 id，但值不是时间表达式
+  - "const userId = rows[0].id;"
+invalid:
+  - "const id = new Date().toISOString();"
+  - "const rowId = Date.now();"
+  - "const item_id = Date.now().toString();"
+  - "const x = { id: Date.now() };"
+  - "const y = { row_id: new Date().toISOString() };"

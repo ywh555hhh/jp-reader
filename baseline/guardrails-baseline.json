@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "由 `npm run gate:update-baseline` 生成。metrics 里的每个数字都是\"当前允许的最大值\"，只允许下降；要上调必须在 PR 里说明理由。frozen 里的 issue 编号是允许该指标非零的唯一依据。",
+  "metrics": {
+    "astgrep_rule_test_failures": 0,
+    "astgrep:jp-no-date-as-identity": 0,
+    "astgrep:jp-no-empty-catch": 0,
+    "astgrep:jp-no-indexof-position-lookup": 0,
+    "astgrep:jp-no-ruleid-switch": 0,
+    "capability_url_extra_copies": 0,
+    "depcruise:domain-purity": 0,
+    "depcruise:no-circular": 0,
+    "depcruise:no-orphan-module": 0,
+    "depcruise:single-http-entry": 0,
+    "files_over_350_lines": 0,
+    "files_with_module_level_state": 1,
+    "files_with_raw_writes": 1,
+    "frozen_metrics_without_issue": 0,
+    "invariants_without_enforcer": 0,
+    "jscpd_clones": 1,
+    "jscpd_duplicated_lines": 15,
+    "knip_issues": 0,
+    "source_files_over_500_lines": 0,
+    "typecheck_errors": 0
+  },
+  "frozen": {}
+}

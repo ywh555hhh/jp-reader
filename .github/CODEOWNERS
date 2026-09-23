@@ -1,0 +1,35 @@
+# 护栏文件必须由仓库所有者 review。
+#
+# ⚠ 当前是装饰性的：这个仓库是私有 + 免费账号，没有分支保护 / ruleset，
+#   因此 code owner review 根本不会触发（实测 branch protection 返回 403）。
+#   一旦升级为 Pro 或转为公开，把 gate / pr-budget 设为必需检查，这份文件就自动生效。
+#   在那之前，真正的拦截在本地 hook（npm run setup）与 AGENTS.md 的契约。
+#
+# 保留它的理由：内容零成本，且它准确表达了"改这里需要单独评审"的意图；
+# 理由：这些文件定义"什么算违规"。让它们和业务代码一起被随手改掉，
+# 整套机制就变成了装饰。改这里请走 docs/adr/ 并单独开 PR。
+
+# 护栏本体
+/rules/                    @ywh555hhh
+/.dependency-cruiser.cjs   @ywh555hhh
+/scripts/guard-rules.mjs   @ywh555hhh
+/scripts/ratchet.mjs       @ywh555hhh
+/scripts/gate.sh           @ywh555hhh
+/scripts/pr-budget.sh      @ywh555hhh
+/baseline/                 @ywh555hhh
+/tests/architecture.metrics.mjs @ywh555hhh
+/tests/architecture.test.mjs    @ywh555hhh
+
+# 约束与决定
+/docs/architecture.md      @ywh555hhh
+/docs/adr/                 @ywh555hhh
+/AGENTS.md                 @ywh555hhh
+/CLAUDE.md                 @ywh555hhh
+
+# 构建与 CI
+/.github/                  @ywh555hhh
+/.gitignore                @ywh555hhh
+/vscode-extension/tsconfig.json @ywh555hhh
+/vscode-extension/knip.json     @ywh555hhh
+/jscpd.json                @ywh555hhh
+/sgconfig.yml              @ywh555hhh

@@ -1,0 +1,16 @@
+# lemma 映射表：kuromoji(basic_form) ↔ CEJC(UniDic lemma)
+#
+# 解决两套词典对同一词的 lemma 写法不一致的问题（例如 kuromoji 给「する」，而 UniDic 的
+# 語彙素是「為る」）。读取时按左列匹配，命中后替换为右列（即 CEJC lemma），再去查 wtype。
+#
+# 每行两列（Tab 分隔）：kuromoji_basic_form<TAB>cejc_lemma
+# 这张表是手写的常见差异，可以按需增删；它不修改插件代码。
+する	為る
+ある	有る
+なる	成る
+いる	居る
+行く	行く
+来る	来る
+言う	言う
+見る	見る
+食べる	食べる

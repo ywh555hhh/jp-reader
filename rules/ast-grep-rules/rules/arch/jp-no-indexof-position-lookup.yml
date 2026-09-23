@@ -1,0 +1,32 @@
+id: jp-no-indexof-position-lookup
+language: TypeScript
+severity: warning
+message: "定位一次出现时必须用真实 offset，禁止用 indexOf(surface) 反查——它永远返回全文第一次出现的位置"
+note: |
+  否命题 A6（docs/architecture.md）。
+
+  为什么：从一个词的表层形式反查它在文档里的位置，只能得到"第一次出现"。
+  当同一个词在课文里出现多次时，收集到的原句会是**另一句**，
+  而且这种错误不会报错、不会崩，只会安静地存错数据。
+
+  正确做法：渲染高亮 span 时就把 token 在源文里的 offset 写进 data-* 属性
+  （kuromoji 的 word_position 已经有了），前端回传 offset，宿主用它定位句子。
+
+  例：
+    ❌  const idx = fullText.indexOf(surface);   // 永远是第一次出现
+    ✅  const idx = Number(el.dataset.offset);
+
+  这条规则存在 D 类违规（存量已冻结，见 baseline/guardrails-baseline.json）。
+rule:
+  pattern: $TEXT.indexOf($NEEDLE)
+  inside:
+    any:
+      - kind: function_declaration
+        has:
+          field: name
+          regex: "(?i)(sentence|locate|offset|position)"
+      - kind: variable_declarator
+        has:
+          field: name
+          regex: "(?i)(sentence|locate|offset|position)"
+    stopBy: end

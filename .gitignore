@@ -1,0 +1,14 @@
+node_modules/
+out/
+*.vsix
+.vscode/
+.reports/
+*.tsbuildinfo
+
+# ⚠ 本仓库只放代码 —— 数据根不进版本库（见 README「代码与数据分开」）
+#    用前导 / 只忽略仓库根目录，这样 examples/minimal/ 里的示例数据不受影响。
+/vocab/
+/texts/
+/rules_config.json
+/providers_config.json
+/data/

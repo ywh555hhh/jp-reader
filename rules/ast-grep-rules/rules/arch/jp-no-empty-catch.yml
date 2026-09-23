@@ -1,0 +1,22 @@
+id: jp-no-empty-catch
+language: TypeScript
+severity: warning
+message: "禁止完全空的 catch 块 —— 要么处理，要么写明为什么可以吞掉"
+note: |
+  否命题 A8（docs/architecture.md）。
+
+  为什么：空 catch 是 agent 让报错消失的最短路径，也是同类 bug 反复复发的根因。
+  被吞掉的异常应该在代码里留下痕迹，而不是消失。
+
+  允许的写法（任意一种）：
+    ✅  catch (e) { logger.warn('tokenizer 构建失败', e); }
+    ✅  catch { /* swallow: 词表文件可选，缺失时按空集合处理 */ }
+    ✅  .catch(() => undefined)   // 显式表达"失败无所谓"且不影响数据
+
+  本规则只禁止"花括号里什么都没有"的情况；带注释的 catch 不算违规。
+rule:
+  kind: catch_clause
+  has:
+    field: body
+    kind: statement_block
+    regex: "^\\{\\s*\\}$"

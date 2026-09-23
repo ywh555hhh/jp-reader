@@ -1,0 +1,24 @@
+{
+  "name": "jp-station-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "JP Reader 工作区：数据根 + VS Code 扩展 + agent 架构护栏。所有命令都从仓库根目录运行。",
+  "scripts": {
+    "setup": "bash scripts/install-hooks.sh",
+    "gate": "bash scripts/gate.sh",
+    "gate:update-baseline": "node scripts/ratchet.mjs --update",
+    "guard": "node scripts/guard-rules.mjs",
+    "lint:file": "bash scripts/lint-file.sh",
+    "test:arch": "node --test tests/architecture.test.mjs",
+    "test:unit": "npm --prefix vscode-extension run compile && node --test \"tests/**/*.test.mjs\"",
+    "typecheck": "npm --prefix vscode-extension run typecheck",
+    "deadcode": "npm --prefix vscode-extension run deadcode",
+    "compile": "npm --prefix vscode-extension run compile",
+    "package": "npm --prefix vscode-extension run package"
+  },
+  "devDependencies": {
+    "@ast-grep/cli": "^0.45.3",
+    "dependency-cruiser": "^16.10.4",
+    "jscpd": "^5.3.1"
+  }
+}

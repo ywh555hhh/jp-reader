@@ -1,0 +1,28 @@
+{
+  "rules": [
+    {
+      "id": "wago_sample",
+      "name": "示例和语词表【手写示例】",
+      "enable": true,
+      "match": { "lemma_in_file": "./vocab/wago_sample.txt" },
+      "style": { "color": "#4ade80", "fontWeight": "500" },
+      "priority": 10
+    },
+    {
+      "id": "dim_kanji_gairaigo",
+      "name": "汉语词/外来词淡化",
+      "enable": true,
+      "match": { "wtype": ["漢", "外"] },
+      "style": { "color": "#888888" },
+      "priority": 1
+    },
+    {
+      "id": "my_collection_highlight",
+      "name": "个人收集词库高亮",
+      "enable": true,
+      "match": { "lemma_in_file": "./vocab/my_collection_lemmas.txt" },
+      "style": { "color": "#fbbf24", "fontWeight": "700" },
+      "priority": 20
+    }
+  ]
+}

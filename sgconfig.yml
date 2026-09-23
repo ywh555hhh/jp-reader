@@ -1,0 +1,15 @@
+# ast-grep 项目配置。
+#
+# 规则目录与 pi-lens 的项目规则目录是同一个（rules/ast-grep-rules/rules），
+# 所以同一条规则既会在 agent 编辑时以内联诊断出现，也会在 `npm run gate` / CI 里跑一遍。
+# 一条规则只写一次。
+#
+# 注意：只有"与文件路径无关"的规则才允许放在这里。带路径豁免（ignores）的约束
+# 在 pi-lens 内联模式下会误报，请改用 .dependency-cruiser.cjs 或 tests/architecture.test.mjs。
+ruleDirs:
+  - rules/ast-grep-rules/rules
+
+# 规则自身的测试（valid 必须不命中、invalid 必须命中）。
+# `npm run gate` 会跑 `npx ast-grep test`，失败会变成 astgrep_rule_test_failures 指标。
+testConfigs:
+  - testDir: rules/ast-grep-rules/rule-tests

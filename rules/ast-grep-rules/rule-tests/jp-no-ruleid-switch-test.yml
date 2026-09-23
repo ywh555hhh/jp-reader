@@ -1,0 +1,19 @@
+# jp-no-ruleid-switch 的语义测试。
+# valid 必须不命中，invalid 必须命中。改动规则后跑：npx ast-grep test --skip-snapshot-tests
+id: jp-no-ruleid-switch
+valid:
+  # 数据驱动：不认识具体 id，只做字符串拼接
+  - "const cls = 'jp-' + rule.id;"
+  - "const attrs = `class=\"jp ${cssClassOf(rule.id)}\"`;"
+  # ⚠ 这一条是规则精度的护栏：按主键匹配记录是正当写法，不允许被误报。
+  # 曾经因为把匹配条件写成"任何 .id"，这里被误报过（见 rule 的 note）。
+  - "const hit = entries.find((e) => e.id === id);"
+  - "if (entry.id !== id) { return false; }"
+  # 分支的是别的东西
+  - "switch (kind) { case 'translate': return 1; default: return 2; }"
+  - "switch (entry.type) { case 'a': break; }"
+  - "if (token.wtype === '漢') { return 1; }"
+invalid:
+  - "switch (rule.id) { case 'wago_p99': return 'jp-wago'; default: return 'jp-mark'; }"
+  - "const cls = rule.id === 'wago_p99' ? 'jp-wago' : 'jp-mark';"
+  - "if (rule.id !== 'my_collection_highlight') { return 'jp-mark'; }"

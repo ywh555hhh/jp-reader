@@ -1,0 +1,187 @@
+{
+  "name": "jp-reader",
+  "displayName": "JP Reader",
+  "description": "日语 Markdown 阅读扩展：离线分词、可配置高亮规则引擎、划词查词/朗读/语境收集/复习",
+  "version": "0.2.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Other",
+    "Education"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:markdown"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./preview/jp-reader.css"
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "jpReader",
+          "title": "JP Reader",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "jpReader": [
+        {
+          "type": "webview",
+          "id": "jpReader.wordbook",
+          "name": "学习数据"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "jpReader.analyzeSelection",
+        "title": "JP Reader: 查词",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.readSelection",
+        "title": "JP Reader: 朗读",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.collectSelection",
+        "title": "JP Reader: 语境收集",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.translateSelection",
+        "title": "JP Reader: 中日翻译",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.aiExplainSelection",
+        "title": "JP Reader: AI 讲解",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.openWordbook",
+        "title": "JP Reader: 打开学习面板",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.setProviderSecret",
+        "title": "JP Reader: 设置 Provider 密钥",
+        "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.openReadingView",
+        "title": "JP Reader: 打开阅读视图",
+        "category": "JP Reader",
+        "icon": "$(book)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "jpReader.openReadingView",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "jpReader.analyzeSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "jpReader.readSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "jpReader.translateSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "jpReader.aiExplainSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "jpReader.collectSelection",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "JP Reader",
+      "properties": {
+        "jpReader.dataRoot": {
+          "type": "string",
+          "default": "",
+          "description": "JP Reader 数据根目录（含 rules_config.json、vocab/、texts/）。留空则自动从工作区查找 jp-station。"
+        },
+        "jpReader.enableTTS": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用朗读（Windows 离线 SAPI）"
+        },
+        "jpReader.enableTranslation": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用中日翻译（联网）"
+        },
+        "jpReader.translationEndpoint": {
+          "type": "string",
+          "default": "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=zh-CN&dt=t&q=",
+          "description": "翻译接口（默认免费 googleapis 端点，可换成自己的服务）"
+        },
+        "jpReader.enableAi": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否启用 AI 句子讲解（联网，需配置 aiEndpoint/aiApiKey）"
+        },
+        "jpReader.aiEndpoint": {
+          "type": "string",
+          "default": "https://api.openai.com/v1/chat/completions",
+          "description": "AI 讲解端点（OpenAI 兼容 Chat Completions）"
+        },
+        "jpReader.aiApiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "AI 讲解 API Key（隐私：仅存本机设置，不上传）"
+        },
+        "jpReader.aiModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "AI 讲解模型名"
+        },
+        "jpReader.enableFurigana": {
+          "type": "boolean",
+          "default": false,
+          "description": "Markdown 预览是否显示振假名（ruby 注音）"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "typecheck": "tsc -p ./ --noEmit",
+    "deadcode": "knip --no-progress",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "kuromoji": "^0.1.2",
+    "markdown-it": "^15.0.2"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.91.0",
+    "@vscode/vsce": "^4.0.0",
+    "knip": "^6.37.0",
+    "typescript": "^5.6.0"
+  }
+}
