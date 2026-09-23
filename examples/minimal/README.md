@@ -11,6 +11,8 @@ examples/minimal/
 │  ├─ wago_sample.txt       手写和语词表（15 个常见词）
 │  ├─ lemma_wtype.tsv       上述词的 lemma→語種（和/漢/外）
 │  └─ lemma_mapping.tsv     kuromoji ↔ CEJC lemma 的别名映射（手写）
+├─ dict/
+│  └─ sample.dict.tsv       手写示例词典（19 个词，让查词能显示释义）
 └─ texts/
    └─ lesson-sample.md      自撰例句（不是任何教材的课文）
 ```
@@ -20,8 +22,15 @@ examples/minimal/
 在 VS Code 设置里把数据根指到这里（或者指到你自己那份完整数据根）：
 
 ```json
-{ "jpReader.dataRoot": "<仓库路径>/examples/minimal" }
+{
+  "jpReader.dataRoot": "<仓库路径>/examples/minimal",
+  "jpReader.dictionaryPath": "<仓库路径>/examples/minimal/dict/sample.dict.tsv"
+}
 ```
+
+第二条是可选的：不配词典时查词只显示词性/語種；配上就会多出行释义。
+真实词典（Yomichan term_bank / JMdict-simplified / 你自己的 TSV）请放在仓库外
+（根目录的 `dict/`、`dictionaries/` 已被 gitignore）。
 
 ## ⚠ 完整词表要自己生成，不要提交进仓库
 

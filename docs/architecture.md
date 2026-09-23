@@ -48,6 +48,10 @@ vocab/lemma_mapping.tsv    kuromoji lemma ↔ CEJC lemma
 vocab/my_collection.tsv    个人收集词条（按"条目"：一个词可以有多条语境）
 vocab/my_collection_lemmas.txt  派生文件：供规则引擎按文件加载
 vocab/review_state.tsv     复习状态（按"lemma"：每个词只有一条，间隔重复的调度依据）
+
+词典（可选，**仓库外**）：
+  本地词典文件            查词释义用。三种格式：本项目 TSV / Yomichan term_bank / JMdict-simplified
+                          ⚠ 外部数据：不进仓库、有 64MB 上限、坏行只报问题
 texts/                     课文
 ```
 
@@ -159,7 +163,11 @@ texts/                     课文
    覆盖率分析是 `coverage.ts`（纯计算）+ `coverageInputs.ts`（组装"已见/已掌握/重点词"）。
    命令面板与阅读视图顶部都调这两个模块 —— 不要在任何一处重新算一遍，
    否则同一个课文会在两个界面给出不同的百分比，而这正是本项目最常见的坏味道。
-8. **可变状态只允许出现在 `appContext.ts`（否命题 A10）。**
+8. **外部数据要设边界。** 词典（`dictionary.ts`）是"格式由用户提供"的外部数据，
+   所以：坏行只报 problem 并跳过、有大小上限（指错文件不能撑爆宿主）、
+   查不到就返回空而不是模糊匹配。把这类数据接进项目时，先问三个问题 ——
+   它会不会把内存吃光？它的格式坏了会不会让整个功能不可用？它的许可允许进仓库吗？
+9. **可变状态只允许出现在 `appContext.ts`（否命题 A10）。**
    “当前是什么”这类事实——规则表、数据根、词典目录、密钥读取器、provider 配置、
    tokenizer 缓存、阅读视图会话——一律从 ctx 取；功能模块不要新增模块级 `let`。
    `provider.ts` 本身是**无状态**的（配置与密钥通过 `ProviderRuntime` 传入），

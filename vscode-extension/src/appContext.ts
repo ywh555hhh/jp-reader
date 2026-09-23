@@ -8,6 +8,13 @@ import {
     loadProviderConfig,
 } from './provider';
 import { TokenizerCache, createTokenizerCache } from './tokenizer';
+import {
+    DefinitionEntry,
+    DictionaryIndex,
+    dictionaryFiles,
+    loadDictionary,
+    lookup as lookupInDictionary,
+} from './dictionary';
 
 /**
  * 宿主侧共享上下文：**可变事实的唯一持有者**（否命题 A10 / issue #7）。
@@ -39,6 +46,10 @@ let providerCfg: ProvidersConfig = {};
 const tokenizers: TokenizerCache = createTokenizerCache();
 
 let extensionDir = '';
+
+/** 词典缓存（懒加载）：外部数据，缓存只由 ctx 持有 */
+let dictIndex: DictionaryIndex | null = null;
+let dictLoadedFrom = '';
 
 /**
  * 阅读视图的会话状态（打开的面板、看的是哪篇文档、首屏是否已渲染、待执行的防抖）。
@@ -96,6 +107,66 @@ export function dataRootPath(): string {
 }
 
 /** kuromoji 词典目录（activate 时确定一次） */
+/** 词典路径（设置 jpReader.dictionaryPath；可以是单个文件，也可以是一个目录）。仅本模块使用。 */
+function dictionaryFilePath(): string {
+    return String(
+        vscode.workspace.getConfiguration('jpReader').get<string>('dictionaryPath', '') || ''
+    ).trim();
+}
+
+/**
+ * 查词释义。词典懒加载，路径变了就重载。
+ *
+ * loaded=false 表示"没有配置词典"——调用方据此决定要不要提示用户。
+ * 坏行/坏格式只报 problem 不抛异常：词典是外部数据，不该因为它写错一个字就查不到任何词。
+ */
+export function lookupDefinitions(term: string): {
+    entries: DefinitionEntry[];
+    loaded: boolean;
+    problems: string[];
+} {
+    const configured = dictionaryFilePath();
+    if (!configured) {
+        return { entries: [], loaded: false, problems: [] };
+    }
+    if (!dictIndex || dictLoadedFrom !== configured) {
+        const files = dictionaryFiles(configured);
+        dictIndex = loadDictionary(files);
+        dictLoadedFrom = configured;
+        if (files.length === 0) {
+            vscode.window.showWarningMessage(
+                `JP Reader: 词典路径不存在，或目录里没有词典文件：${configured}`
+            );
+        }
+        for (const problem of dictIndex.problems.slice(0, 3)) {
+            vscode.window.showWarningMessage(`JP Reader 词典: ${problem}`);
+        }
+    }
+    return {
+        entries: lookupInDictionary(dictIndex, term),
+        loaded: true,
+        problems: dictIndex.problems,
+    };
+}
+
+/** 词典摘要（给「检查词典」命令用） */
+export function dictionarySummary(): string {
+    const configured = dictionaryFilePath();
+    if (!configured) {
+        return '未配置词典。设置 jpReader.dictionaryPath 指向 TSV / Yomichan term_bank / JMdict-simplified 文件或目录。';
+    }
+    const files = dictionaryFiles(configured);
+    if (!dictIndex || dictLoadedFrom !== configured) {
+        dictIndex = loadDictionary(files);
+        dictLoadedFrom = configured;
+    }
+    return (
+        `${files.length} 个文件 ｜ ${dictIndex.entries.size} 个词条` +
+        (dictIndex.problems.length > 0 ? ` ｜ ${dictIndex.problems.length} 个问题` : '') +
+        ` ｜ 来源：${dictIndex.sources.slice(0, 3).join(', ') || '无'}`
+    );
+}
+
 export function setDictionaryDir(dir: string): void {
     dictionaryDir = dir;
 }
