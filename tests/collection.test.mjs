@@ -200,3 +200,52 @@ test('含换行与制表符的内容不会破坏 TSV 结构', () => {
   assert.equal(rows[0].length, 10, '字段数必须恒为 10');
   assert.ok(!raw.endsWith('\n\n'), '不应写出多余空行');
 });
+
+test('写盘是原子的：文件被整体替换（inode 变化）而不是就地覆盖，且不留临时文件', () => {
+  const root = makeRoot();
+  assert.equal(add(root, 0), true);
+  const file = collectionFile(root);
+  const inodeBefore = fs.statSync(file).ino;
+
+  assert.equal(add(root, 1), true);
+  const inodeAfter = fs.statSync(file).ino;
+
+  assert.notEqual(
+    inodeAfter,
+    inodeBefore,
+    '原子写应当通过 rename 整体替换文件（inode 会变）；就地覆盖不会变'
+  );
+  const leftovers = fs.readdirSync(path.dirname(file)).filter((n) => n.endsWith('.tmp'));
+  assert.deepEqual(leftovers, [], `不应留下临时文件：${leftovers.join(', ')}`);
+});
+
+test('写盘失败时不破坏已有数据，也不留临时文件（#3 的回归测试）', () => {
+  const root = makeRoot();
+  assert.equal(add(root, 0), true);
+  const file = collectionFile(root);
+  const before = fs.readFileSync(file, 'utf8');
+  const dir = path.dirname(file);
+
+  fs.chmodSync(dir, 0o500); // 目录只读 → 无法创建临时文件
+  try {
+    const ok = col.addEntry(root, {
+      lemma: '語9',
+      surfaceForm: '語9',
+      wtype: '和',
+      pos: '名詞_普通名詞',
+      sentence: 'これは語9です。',
+      source: 'lesson01.md',
+      status: 'new',
+      note: '',
+    });
+    assert.equal(ok, false, '写不进去时应返回 false，而不是抛异常');
+    assert.equal(fs.readFileSync(file, 'utf8'), before, '已有数据必须原样保留');
+    assert.deepEqual(
+      fs.readdirSync(dir).filter((n) => n.endsWith('.tmp')),
+      [],
+      '失败的写盘不能留下临时文件'
+    );
+  } finally {
+    fs.chmodSync(dir, 0o700);
+  }
+});

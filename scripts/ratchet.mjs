@@ -21,6 +21,7 @@ import path from 'node:path';
 import {
   ROOT,
   BASELINE_PATH,
+  astgrepRuleIds,
   collectMetaMetrics,
   collectSemanticMetrics,
   describeMetric,
@@ -184,7 +185,10 @@ function collectAstgrep() {  if (!exists('node_modules/.bin/ast-grep')) {
     metrics[key] = (metrics[key] || 0) + 1;
     detail.push(`astgrep[${hit.ruleId}]: ${hit.file}:${hit.range.start.line + 1} ${hit.text.split('\n')[0]}`);
   }
-  for (const id of ['jp-no-ruleid-switch', 'jp-no-indexof-position-lookup', 'jp-no-date-as-identity', 'jp-no-empty-catch']) {
+  // 零命中的规则也要登记（否则新规则一旦开始命中会报 UNREGISTERED 而不是干净比较）。
+  // ⚠ 规则 id 从规则目录动态读，不要在这里写死清单 —— 手写清单会随规则增删而过期，
+  //   这与"渲染层不得按 id 硬编码"是同一类问题（A5）。
+  for (const id of astgrepRuleIds(ROOT)) {
     if (!(`astgrep:${id}` in metrics)) {
       metrics[`astgrep:${id}`] = 0;
     }

@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { atomicWrite } from './atomicFile';
 import { randomUUID } from 'crypto';
 
 /**
@@ -124,7 +125,8 @@ function bodyLines(content: string): string[] {
 
 function writeRows(fp: string, entries: CollectionEntry[]): void {
     const body = entries.map(serializeRow).join('\n');
-    fs.writeFileSync(fp, `${HEADER}\n${body}${entries.length ? '\n' : ''}`, 'utf-8');
+    // 原子写：崩在半路也不会把用户的词库截断（否命题 A20）
+    atomicWrite(fp, `${HEADER}\n${body}${entries.length ? '\n' : ''}`);
 }
 
 /**
@@ -184,7 +186,11 @@ export function addEntry(
             timestamp: new Date().toISOString(),
             ...entry,
         };
-        fs.appendFileSync(fp, `${serializeRow(record)}\n`, 'utf-8');
+        // 追加也走原子写：appendFileSync 的写入长度/落盘时机不受我们控制，
+        // 而这条记录是用户刚收集的、唯一的那一份。个人规模下这点开销可以忽略。
+        const existing = fs.readFileSync(fp, 'utf-8');
+        const prefix = existing === '' || existing.endsWith('\n') ? existing : `${existing}\n`;
+        atomicWrite(fp, `${prefix}${serializeRow(record)}\n`);
         refreshLemmasFile(dataRoot);
         return true;
     } catch {
@@ -205,7 +211,7 @@ export function refreshLemmasFile(dataRoot: string): void {
         }
     }
     const sorted = Array.from(lemmas).sort();
-    fs.writeFileSync(lemmasPath(dataRoot), sorted.join('\n') + (sorted.length ? '\n' : ''), 'utf-8');
+    atomicWrite(lemmasPath(dataRoot), sorted.join('\n') + (sorted.length ? '\n' : ''));
 }
 
 /** 将全部条目重写回文件（保持表头） */

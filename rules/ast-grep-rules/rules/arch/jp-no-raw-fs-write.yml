@@ -1,0 +1,32 @@
+id: jp-no-raw-fs-write
+language: TypeScript
+severity: warning
+message: "禁止 fs.* 形式的裸写（writeFileSync / appendFileSync / createWriteStream）—— 写盘一律走 atomicFile.ts 的 atomicWrite()"
+note: |
+  否命题 A20（docs/architecture.md）。
+
+  为什么：数据文件（词库、词表、课文）是用户的**唯一副本**。
+  直接覆盖写一旦中途失败（断电、进程被杀、磁盘满），原文件已被截断 —— 整份数据就没了。
+  `atomicWrite()` 的写法是"同目录临时文件 → fsync → rename"，
+  rename 在同一目录内原子，所以读者永远只会看到旧内容或新内容。
+
+  例：
+    ❌  fs.writeFileSync(path, content)
+    ❌  fs.appendFileSync(path, line)
+    ✅  import { atomicWrite } from './atomicFile';
+        atomicWrite(path, content)
+
+  规则只匹配 `fs.<方法>(...)` 这种成员调用形式，所以唯一被允许写盘的
+  `atomicFile.ts` 用具名导入（`import { writeFileSync } from 'fs'`）就自然不命中——
+  它读起来也正好是"这里是那个唯一的例外"。
+
+  同时有 `metric:files_with_raw_writes` 兜底：不论什么写法，全仓写盘只能出现在一个模块。
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    all:
+      - has:
+          field: property
+          regex: "^(writeFileSync|appendFileSync|writeFile|appendFile|createWriteStream|truncateSync|truncate)$"

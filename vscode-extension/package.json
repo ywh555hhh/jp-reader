@@ -126,35 +126,10 @@
           "default": true,
           "description": "是否启用朗读（Windows 离线 SAPI）"
         },
-        "jpReader.enableTranslation": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否启用中日翻译（联网）"
-        },
-        "jpReader.translationEndpoint": {
-          "type": "string",
-          "default": "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=zh-CN&dt=t&q=",
-          "description": "翻译接口（默认免费 googleapis 端点，可换成自己的服务）"
-        },
-        "jpReader.enableAi": {
-          "type": "boolean",
-          "default": false,
-          "description": "是否启用 AI 句子讲解（联网，需配置 aiEndpoint/aiApiKey）"
-        },
-        "jpReader.aiEndpoint": {
-          "type": "string",
-          "default": "https://api.openai.com/v1/chat/completions",
-          "description": "AI 讲解端点（OpenAI 兼容 Chat Completions）"
-        },
         "jpReader.aiApiKey": {
           "type": "string",
           "default": "",
           "markdownDescription": "AI 讲解 API Key（隐私：仅存本机设置，不上传）"
-        },
-        "jpReader.aiModel": {
-          "type": "string",
-          "default": "gpt-4o-mini",
-          "description": "AI 讲解模型名"
         },
         "jpReader.enableFurigana": {
           "type": "boolean",

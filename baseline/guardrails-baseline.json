@@ -6,6 +6,7 @@
     "astgrep:jp-no-date-as-identity": 0,
     "astgrep:jp-no-empty-catch": 0,
     "astgrep:jp-no-indexof-position-lookup": 0,
+    "astgrep:jp-no-raw-fs-write": 0,
     "astgrep:jp-no-ruleid-switch": 0,
     "capability_url_extra_copies": 0,
     "depcruise:domain-purity": 0,

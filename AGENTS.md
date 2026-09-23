@@ -82,6 +82,10 @@ X Pull request is not mergeable: the base branch policy prohibits the merge.
   `providers_config.json` 已被 `.gitignore` 挡住。不要为了让测试或演示“能用”而把真实词表、
   课文、个人收集词条提交进来 —— CEJC 派生数据是「再配布は不可」，教材课文有版权，个人词库含本地路径。
   需要示例就往 `examples/minimal/` 里加**自撰**内容。
+- **写盘一律走 `atomicWrite()`**（`src/atomicFile.ts`），不要写 `fs.writeFileSync` /
+  `fs.appendFileSync`。数据文件是用户的唯一副本，就地覆盖中途失败会把它截断（A20）。
+- **声明的设置必须有实现。** 往 `package.json` 加设置项时，同时写出读它的代码；
+  否则 `check:declared-settings-are-read` 会失败（A21 —— 用户设了没反应，比没有这个设置更糟）。
 - **重复实现是本仓库排名第一的坏味道。** 加新能力之前先问：这个能力已经有实现了吗？
   （本项目已经出现过三套出网实现、三份 `escapeHtml`、两份 `splitForTTS`。）
 - **改数据格式必须写迁移。** `vocab/my_collection.tsv` 是用户的真实数据，不能被新代码读不出来。
