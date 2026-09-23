@@ -10,6 +10,10 @@
  * 到期才复习、答对就拉长间隔、答错就回到当天。
  */
 
+// 用码点序而不是 localeCompare：后者的顺序随 ICU 版本/语言环境变化，
+// 会让同一篇课文在不同机器上给出不同的生词顺序（用户会以为结果随机）。
+const byCodepoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
 export type ReviewGrade = 'again' | 'hard' | 'good' | 'easy';
 
 export interface ReviewState {
@@ -184,9 +188,9 @@ export function buildQueue(
         const sb = states.get(b);
         const da = sa ? sa.due : today;
         const db = sb ? sb.due : today;
-        return da === db ? a.localeCompare(b) : da.localeCompare(db);
+        return da === db ? byCodepoint(a, b) : da.localeCompare(db);
     });
-    fresh.sort((a, b) => a.localeCompare(b));
+    fresh.sort(byCodepoint);
 
     return {
         due: due.slice(0, options.reviewLimit ?? 200),

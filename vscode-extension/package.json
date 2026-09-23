@@ -80,6 +80,11 @@
         "title": "JP Reader: 打开阅读视图",
         "category": "JP Reader",
         "icon": "$(book)"
+      },
+      {
+        "command": "jpReader.analyzeCoverage",
+        "title": "JP Reader: 分析课文覆盖率（生词/认识率）",
+        "category": "JP Reader"
       }
     ],
     "menus": {
@@ -110,6 +115,10 @@
         {
           "command": "jpReader.collectSelection",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "jpReader.analyzeCoverage",
+          "when": "editorLangId == markdown"
         }
       ]
     },

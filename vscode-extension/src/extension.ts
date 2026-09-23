@@ -1,29 +1,22 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { toJpTokens } from './ruleEngine';
-import { sentenceAt } from './readingSource';
 import { highlightEditor, disposeDecorations } from './highlighter';
-import { addEntry, refreshLemmasFile } from './collection';
-import { speak } from './tts';
 import { WordbookViewProvider, readingOf } from './wordbookView';
 import { buildMarkdownItPlugin } from './mdPlugin';
 import { watchDataFiles } from './dataWatcher';
-import { openReadingView, refreshReadingView } from './readingView';
+import { refreshReadingView } from './readingView';
+import { registerCommands } from './commands';
 import {
-    callProvider,
     currentData,
-    dataRootPath,
     ensureData,
     getTokenizer,
     initSecrets,
-    isProviderEnabled,
     loadEngineData,
     migrateLegacyAiKey,
     refreshWordbook,
+    scheduleHighlightRefresh,
     setDictionaryDir,
     setExtensionDir,
-    scheduleHighlightRefresh,
-    setProviderSecret,
     setWordbook,
 } from './appContext';
 
@@ -52,180 +45,6 @@ async function reloadData(): Promise<void> {
 }
 
 
-/** 取选中文本 */
-function selectedText(editor: vscode.TextEditor): string {
-    return editor.document.getText(editor.selection).trim();
-}
-
-
-/** 命令1：查词 */
-async function analyzeSelection() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-    const selText = selectedText(editor);
-    if (!selText) {
-        vscode.window.showInformationMessage('请先选中日语文本');
-        return;
-    }
-    const engineData = ensureData();
-    const tokenizer = await getTokenizer();
-    const raw = tokenizer.tokenize(selText);
-    const jp = toJpTokens(raw, engineData);
-    if (jp.length === 0) {
-        vscode.window.showInformationMessage('选中内容未识别为日语');
-        return;
-    }
-    const items = jp.map((t) => ({
-        label: t.surface,
-        description: t.reading ? `[${t.reading}]` : '',
-        detail: `${t.lemma} ｜ 品詞:${t.pos} ｜ 語種:${t.wtype}`,
-    }));
-    vscode.window.showQuickPick(items, {
-        title: 'JP Reader 查词',
-        placeHolder: selText,
-    });
-}
-
-/** 命令2：朗读 */
-async function readSelection() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-    const selText = selectedText(editor);
-    if (!selText) {
-        vscode.window.showInformationMessage('请先选中日语文本');
-        return;
-    }
-    const cfg = vscode.workspace.getConfiguration('jpReader');
-    if (!cfg.get<boolean>('enableTTS', true)) {
-        vscode.window.showInformationMessage('朗读已关闭（jpReader.enableTTS）');
-        return;
-    }
-    await speak(selText);
-}
-
-/** 命令3：语境收集 */
-async function collectSelection() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-    const selText = selectedText(editor);
-    if (!selText) {
-        vscode.window.showInformationMessage('请先选中日语文本');
-        return;
-    }
-    const engineData = ensureData();
-    const tokenizer = await getTokenizer();
-    const raw = tokenizer.tokenize(selText);
-    const jp = toJpTokens(raw, engineData);
-    if (jp.length === 0) {
-        vscode.window.showInformationMessage('选中内容未识别为日语，未收集');
-        return;
-    }
-    const sentence = sentenceAt(
-        editor.document.getText(),
-        editor.document.offsetAt(editor.selection.start)
-    );
-    const source = editor.document.uri.fsPath;
-    const seen = new Set<string>();
-    let count = 0;
-    for (const t of jp) {
-        const key = `${t.lemma}|${t.surface}`;
-        if (seen.has(key)) {
-            continue;
-        }
-        seen.add(key);
-        const ok = addEntry(dataRootPath(), {
-            lemma: t.lemma,
-            surfaceForm: t.surface,
-            wtype: t.wtype,
-            pos: t.pos,
-            sentence,
-            source,
-            status: 'new',
-            note: '',
-        });
-        if (ok) {
-            count++;
-        }
-    }
-    refreshLemmasFile(dataRootPath());
-    await highlightEditor(editor, ensureData());
-    refreshWordbook();
-    vscode.window.showInformationMessage(
-        `JP Reader: 已收集 ${count} 个词条 → ${path.join(dataRootPath(), 'vocab', 'my_collection.tsv')}`
-    );
-}
-
-/** 命令4：中日翻译（联网可选） */
-async function translateSelection() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-    const selText = selectedText(editor);
-    if (!selText) {
-        vscode.window.showInformationMessage('请先选中日语文本');
-        return;
-    }
-    if (!isProviderEnabled('translate')) {
-        vscode.window.showInformationMessage('翻译已关闭（providers_config.json 里 translate.active = "off"）');
-        return;
-    }
-    vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'JP Reader 翻译中…' },
-        async () => {
-            try {
-                const out = await callProvider('translate', { text: selText });
-                await vscode.window.showInformationMessage(`${selText} → ${out.content}`);
-            } catch (e) {
-                vscode.window.showWarningMessage(`翻译失败: ${(e as Error).message}`);
-            }
-        }
-    );
-}
-
-/** 命令5：AI 句子讲解（联网可选，默认关闭） */
-async function aiExplainSelection() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-    const selText = selectedText(editor);
-    if (!selText) {
-        vscode.window.showInformationMessage('请先选中日语文本');
-        return;
-    }
-    if (!isProviderEnabled('explain')) {
-        vscode.window.showInformationMessage(
-            'AI 讲解未启用：在 providers_config.json 里把 explain.active 设成具体 provider。'
-        );
-        return;
-    }
-    const sentence = sentenceAt(
-        editor.document.getText(),
-        editor.document.offsetAt(editor.selection.start)
-    );
-    vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'JP Reader AI 讲解中…' },
-        async () => {
-            try {
-                const out = await callProvider('explain', {
-                    text: selText,
-                    context: { sentence },
-                });
-                await vscode.window.showInformationMessage(out.content);
-            } catch (e) {
-                vscode.window.showWarningMessage(`AI 讲解失败: ${(e as Error).message}`);
-            }
-        }
-    );
-}
-
 export function activate(context: vscode.ExtensionContext) {
     setDictionaryDir(getDicPath(context));
     initSecrets(context.secrets);
@@ -247,21 +66,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(WordbookViewProvider.viewType, wordbookView)
     );
 
-    // 命令
-    context.subscriptions.push(
-        vscode.commands.registerCommand('jpReader.analyzeSelection', analyzeSelection),
-        vscode.commands.registerCommand('jpReader.readSelection', readSelection),
-        vscode.commands.registerCommand('jpReader.collectSelection', collectSelection),
-        vscode.commands.registerCommand('jpReader.translateSelection', translateSelection),
-        vscode.commands.registerCommand('jpReader.aiExplainSelection', aiExplainSelection),
-        vscode.commands.registerCommand('jpReader.openWordbook', () => {
-            vscode.commands.executeCommand('jpReader.wordbook.focus');
-        }),
-        vscode.commands.registerCommand('jpReader.setProviderSecret', setProviderSecret),
-        vscode.commands.registerCommand('jpReader.openReadingView', () => {
-            openReadingView(context).catch(() => undefined);
-        })
-    );
+    // 命令（实现都在 commands.ts；这里只负责注册与生命周期）
+    context.subscriptions.push(...registerCommands(context));
 
     // 振假名 + 高亮统一由 extendMarkdownIt 插件实现（见 buildMarkdownItPlugin）
 
