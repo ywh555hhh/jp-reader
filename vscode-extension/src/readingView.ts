@@ -15,6 +15,7 @@ import { resolveTtsUrls } from './tts';
 import {
     callProvider,
     ensureData,
+    lookupDefinitions,
     extensionDirPath,
     getTokenizer,
     isProviderEnabled,
@@ -215,6 +216,13 @@ async function handleMessage(msg: any): Promise<void> {
                 pos: t.pos,
                 wtype: t.wtype,
                 reading: t.reading,
+                // 释义来自本地词典（没配词典时是空数组，界面照常显示词性信息）
+                definitions: lookupDefinitions(t.lemma).entries.map((e) => ({
+                    term: e.term,
+                    reading: e.reading,
+                    pos: e.pos,
+                    glosses: e.glosses.slice(0, 4),
+                })),
             }));
             readingSession.panel.webview.postMessage({ type: 'lookupResult', surface, items });
             break;

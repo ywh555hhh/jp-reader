@@ -143,6 +143,31 @@ code --install-extension jp-reader-0.3.0.vsix --force
 3. 在阅读视图里划词 → 悬浮工具栏：🔊朗读 📖查词 🌐翻译 🤖AI讲解 ➕语境收集
 4. 左边活动栏 JP Reader 面板 → 单词本 / 语境复习 / 设置
 
+## 本地词典（释义）
+
+查词默认只给词性 / 語種。指一个本地词典就能显示释义，**完全离线**：
+
+```json
+{ "jpReader.dictionaryPath": "/path/to/dict" }   // 文件或目录（目录会读取其中所有词典文件）
+```
+
+三种格式都支持：
+
+| 格式 | 说明 |
+|---|---|
+| **TSV（推荐）** | `term<TAB>reading<TAB>pos<TAB>meaning`；同一词多行 = 多义项，第 4 列用 `；` 分隔多个意思。纯文本，可 grep，可以只收你真正需要的词 |
+| Yomichan `term_bank_*.json` | 现成的日语词典大多是这种格式（支持结构化 glossary，会自动去 HTML） |
+| JMdict-simplified | `{"words":[...]}` 的 JSON；体积大，建议存成 `.json.gz` |
+
+- 示例见 `examples/minimal/dict/sample.dict.tsv`（19 个手写词条）
+- 命令「JP Reader: 检查词典」会报告加载了多少文件 / 多少词条 / 有没有坏行
+- 查不到就返回空 —— **不做模糊匹配**，因为没有比"看着对但其实是别的词"更糟的释义
+- 单个文件有 64MB 上限（解压后 256MB）：指错文件时不会把扩展宿主撑爆，
+  提示会告诉你改用 TSV 或 `.json.gz`
+
+⚠ **词典文件不要提交进仓库**：体积大，而且许可各异（JMdict 是 CC-BY-SA 4.0，
+Yomichan 各词典有自己的许可）。根目录的 `dict/`、`dictionaries/` 已被 `.gitignore` 挡住。
+
 ## Provider 配置（providers_config.json）
 
 每个能力（translate / speak / explain）配置一个 active provider。三种来源：`builtin`（内置）、`http`（你自己的服务）、`command`（你自己的脚本）。

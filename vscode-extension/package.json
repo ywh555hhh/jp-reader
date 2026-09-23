@@ -85,6 +85,11 @@
         "command": "jpReader.analyzeCoverage",
         "title": "JP Reader: 分析课文覆盖率（生词/认识率）",
         "category": "JP Reader"
+      },
+      {
+        "command": "jpReader.checkDictionary",
+        "title": "JP Reader: 检查词典（路径 / 词条数 / 坏行）",
+        "category": "JP Reader"
       }
     ],
     "menus": {
@@ -150,6 +155,11 @@
           "default": 10,
           "minimum": 0,
           "description": "复习时每天最多引入多少个新词（0 = 只复习已学过的词）"
+        },
+        "jpReader.dictionaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "本地词典路径：可以是单个文件，也可以是一个目录（目录里会读取所有 .tsv/.txt/.json/.gz）。支持本项目 TSV、Yomichan term_bank、JMdict-simplified。留空则查词只显示词性/語種。"
         }
       }
     }

@@ -69,6 +69,9 @@ ${css}
   }
   #jppop .row { margin-bottom:4px; }
   #jppop .label { color:#9ecbff; }
+  #jppop .def { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.12); }
+  #jppop .def .pos { color: rgba(160,160,160,.95); font-size: 11px; }
+  #jppop .gloss { color: #eaeaea; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -205,10 +208,19 @@ ${css}
     const anchor = { x: window.scrollX + window.innerWidth/2, y: window.scrollY + 80 };
     if (m.type === 'lookupResult') {
       if (!m.items || m.items.length === 0) { showPop('（未识别为日语词）', anchor.x, anchor.y); return; }
-      const rows = m.items.map((it) =>
-        '<div class="row"><span class="label">'+it.surface+'</span> → lemma:'+it.lemma+
-        '｜品詞:'+it.pos+'｜語種:'+it.wtype+(it.reading?('｜読'+it.reading):'')+'</div>'
-      ).join('');
+      const rows = m.items.map((it) => {
+        let html = '<div class="row"><span class="label">'+esc(it.surface)+'</span> → lemma:'+esc(it.lemma)+
+          '｜品詞:'+esc(it.pos)+'｜語種:'+esc(it.wtype)+(it.reading?('｜読'+esc(it.reading)):'')+'</div>';
+        const defs = it.definitions || [];
+        for (let i = 0; i < defs.length; i++) {
+          const d = defs[i];
+          html += '<div class="def">'+esc(d.term)+(d.reading?('【'+esc(d.reading)+'】'):'')+
+            (d.pos?(' <span class="pos">'+esc(d.pos)+'</span>'):'')+
+            '<div class="gloss">'+d.glosses.map(function(g){ return esc(g); }).join('；')+'</div></div>';
+        }
+        return html;
+      }).join('') + (m.dictionaryLoaded ? '' :
+        '<div class="def"><span class="pos">未配置词典：设置 jpReader.dictionaryPath 可显示释义</span></div>');
       showPop(rows, anchor.x, anchor.y);
     } else if (m.type === 'translateResult') {
       showPop((m.result ? ('翻译：'+m.result) : ('出错：'+(m.error||''))), anchor.x, anchor.y);

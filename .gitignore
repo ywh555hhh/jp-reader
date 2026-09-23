@@ -13,3 +13,6 @@ out/
 /rules_config.json
 /providers_config.json
 /data/
+# 词典是外部数据：体积大、许可各异（JMdict 是 CC-BY-SA 4.0），不要进仓库
+/dict/
+/dictionaries/

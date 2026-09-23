@@ -11,6 +11,8 @@ import { openReadingView, refreshReadingView } from './readingView';
 import {
     callProvider,
     dataRootPath,
+    dictionarySummary,
+    lookupDefinitions,
     ensureData,
     getTokenizer,
     isProviderEnabled,
@@ -53,11 +55,17 @@ async function analyzeSelection() {
         vscode.window.showInformationMessage('选中内容未识别为日语');
         return;
     }
-    const items = jp.map((t) => ({
-        label: t.surface,
-        description: t.reading ? `[${t.reading}]` : '',
-        detail: `${t.lemma} ｜ 品詞:${t.pos} ｜ 語種:${t.wtype}`,
-    }));
+    const items = jp.map((t) => {
+        const { entries } = lookupDefinitions(t.lemma);
+        const glosses = entries.flatMap((e) => e.glosses).slice(0, 4);
+        return {
+            label: t.surface,
+            description: t.reading ? `[${t.reading}]` : '',
+            detail:
+                `${t.lemma} ｜ 品詞:${t.pos} ｜ 語種:${t.wtype}` +
+                (glosses.length > 0 ? ` ｜ ${glosses.join('；')}` : ''),
+        };
+    });
     vscode.window.showQuickPick(items, {
         title: 'JP Reader 查词',
         placeHolder: selText,
@@ -266,6 +274,15 @@ async function aiExplainSelection() {
     );
 }
 
+/** 命令7：检查词典（路径对不对、加载了多少词条、有哪些坏行） */
+async function checkDictionary(): Promise<void> {
+    const summary = dictionarySummary();
+    const detail = await vscode.window.showInformationMessage(`JP Reader 词典：${summary}`, '打开设置');
+    if (detail === '打开设置') {
+        await vscode.commands.executeCommand('workbench.action.openSettings', 'jpReader.dictionaryPath');
+    }
+}
+
 /** 注册全部命令；返回的 Disposable 由调用方放进 context.subscriptions */
 export function registerCommands(context: vscode.ExtensionContext): vscode.Disposable[] {
     return [
@@ -275,6 +292,7 @@ export function registerCommands(context: vscode.ExtensionContext): vscode.Dispo
         vscode.commands.registerCommand('jpReader.translateSelection', translateSelection),
         vscode.commands.registerCommand('jpReader.aiExplainSelection', aiExplainSelection),
         vscode.commands.registerCommand('jpReader.analyzeCoverage', analyzeCoverageSelection),
+        vscode.commands.registerCommand('jpReader.checkDictionary', checkDictionary),
         vscode.commands.registerCommand('jpReader.openWordbook', () => {
             vscode.commands.executeCommand('jpReader.wordbook.focus');
         }),
