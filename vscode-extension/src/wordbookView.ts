@@ -8,17 +8,39 @@ import {
     CollectionEntry,
 } from './collection';
 import { readyTokenizer } from './appContext';
+import {
+    DEFAULT_NEW_LIMIT,
+    ReviewGrade,
+    buildQueue,
+    computeStats,
+    dueText,
+    grade as gradeState,
+    todayKey,
+} from './reviewSchedule';
+import { loadReviewStates, saveReviewStates, stateOf } from './reviewStore';
 
-interface ReviewPoolItem {
+/**
+ * 复习队列的一项：要背的 lemma + 用它的一条语境出题。
+ * 每个 lemma 只出一次（同词多条语境时取第一条）—— 记的是"词"，不是"句子"。
+ */
+interface QueueItem {
+    lemma: string;
     entry: CollectionEntry;
+}
+
+/** 新词每日限额（设置项 jpReader.newWordsPerDay） */
+function newWordLimit(): number {
+    const cfg = vscode.workspace.getConfiguration('jpReader');
+    const raw = Number(cfg.get<number>('newWordsPerDay', DEFAULT_NEW_LIMIT));
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : DEFAULT_NEW_LIMIT;
 }
 
 export class WordbookViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'jpReader.wordbook';
     private view?: vscode.WebviewView;
-    private pool: ReviewPoolItem[] = [];
-    private poolIndex = 0;
-    private totalPicked = 0;
+    private queue: QueueItem[] = [];
+    private queueIndex = 0;
+    private reviewedThisSession = 0;
 
     constructor(
         private dataRootFn: () => string,
@@ -59,7 +81,7 @@ export class WordbookViewProvider implements vscode.WebviewViewProvider {
                 this.startReview();
                 break;
             case 'reviewAnswer':
-                this.answerReview(msg.ok);
+                this.answerReview(msg.grade as ReviewGrade);
                 break;
             case 'loadSettings':
                 this.sendSettings();
@@ -98,11 +120,14 @@ export class WordbookViewProvider implements vscode.WebviewViewProvider {
             return;
         }
         const dataRoot = this.dataRootFn();
+        const today = todayKey();
+        const { states } = loadReviewStates(dataRoot);
         const grouped = groupByLemma(dataRoot);
         const groups = Array.from(grouped.entries()).map(([lemma, entries]) => ({
             lemma,
             wtype: entries[0].wtype,
             pos: entries[0].pos,
+            dueText: dueText(states.get(lemma), today),
             entries: entries.map((e) => ({
                 id: e.id,
                 timestamp: e.timestamp,
@@ -113,80 +138,107 @@ export class WordbookViewProvider implements vscode.WebviewViewProvider {
                 note: e.note,
             })),
         }));
-        this.view.webview.postMessage({ type: 'data', groups });
+        this.view.webview.postMessage({
+            type: 'data',
+            groups,
+            stats: computeStats(grouped.keys(), states, today),
+        });
     }
 
-    // ---------------- 复习 ----------------
+    // ---------------- 复习（间隔重复） ----------------
+
+    /**
+     * 组队列：到期的先来，不足时按日限额补新词。
+     * 这里不再用"按状态加权随机"—— 随机抽词与记忆强度无关，
+     * 会出现"熟的词反复出现、生词永远不出现"。
+     */
     private startReview(): void {
         const dataRoot = this.dataRootFn();
-        const entries = Array.from(groupByLemma(dataRoot).values()).flat();
-        if (entries.length === 0) {
-            this.post({ type: 'reviewEmpty' });
-            return;
-        }
-        // 轻量加权池：新词 4 / 接触过 2 / 已掌握 1
-        const pool: ReviewPoolItem[] = [];
-        for (const e of entries) {
-            const w = e.status === 'mastered' ? 1 : e.status === 'seen' ? 2 : 4;
-            for (let i = 0; i < w; i++) {
-                pool.push({ entry: e });
+        const today = todayKey();
+        const { states } = loadReviewStates(dataRoot);
+        const grouped = groupByLemma(dataRoot);
+
+        const { due, fresh } = buildQueue(grouped.keys(), states, today, {
+            newLimit: newWordLimit(),
+        });
+
+        const items: QueueItem[] = [];
+        for (const lemma of [...due, ...fresh]) {
+            const entries = grouped.get(lemma);
+            if (entries && entries.length > 0) {
+                items.push({ lemma, entry: entries[0] });
             }
         }
-        // 洗牌
-        for (let i = pool.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [pool[i], pool[j]] = [pool[j], pool[i]];
+
+        if (items.length === 0) {
+            this.post({
+                type: 'reviewEmpty',
+                stats: computeStats(grouped.keys(), states, today),
+            });
+            return;
         }
-        this.pool = pool;
-        this.poolIndex = 0;
-        this.totalPicked = 0;
+
+        this.queue = items;
+        this.queueIndex = 0;
+        this.reviewedThisSession = 0;
         this.sendNextReview();
     }
 
     private sendNextReview(): void {
-        if (this.poolIndex >= this.pool.length) {
-            this.post({ type: 'reviewEmpty' });
+        const dataRoot = this.dataRootFn();
+        const today = todayKey();
+        const grouped = groupByLemma(dataRoot);
+        const { states } = loadReviewStates(dataRoot);
+
+        if (this.queueIndex >= this.queue.length) {
+            this.post({
+                type: 'reviewDone',
+                reviewed: this.reviewedThisSession,
+                stats: computeStats(grouped.keys(), states, today),
+            });
             return;
         }
-        const item = this.pool[this.poolIndex];
-        this.totalPicked++;
-        const entry = item.entry;
-        // 隐藏该 lemma 在本句中的所有表层形式
-        const hidden = hideSurfaces(entry.sentence, entry.surfaceForm);
-        const reading = this.readingFn(entry.surfaceForm);
+
+        const { lemma, entry } = this.queue[this.queueIndex];
         this.post({
             type: 'reviewItem',
             item: {
-                sentenceHidden: hidden,
-                lemma: entry.lemma,
-                reading,
+                // 隐藏这个词在本句中的所有表层形式：只给语境，让用户在上下文里回忆
+                sentenceHidden: hideSurfaces(entry.sentence, entry.surfaceForm),
+                lemma,
+                reading: this.readingFn(entry.surfaceForm),
                 wtype: entry.wtype,
-                done: this.totalPicked,
-                total: this.pool.length,
+                dueText: dueText(states.get(lemma), today),
+                done: this.queueIndex + 1,
+                total: this.queue.length,
             },
         });
     }
 
-    private answerReview(ok: boolean): void {
-        if (this.poolIndex >= this.pool.length) {
+    private answerReview(grade: ReviewGrade): void {
+        if (!['again', 'hard', 'good', 'easy'].includes(grade)) {
             return;
         }
-        const entry = this.pool[this.poolIndex].entry;
-        const cur = entry.status || 'new';
-        const next: CollectionEntry['status'] = ok
-            ? cur === 'new'
-                ? 'seen'
-                : cur === 'seen'
-                ? 'mastered'
-                : 'mastered'
-            : 'new';
-        if (next !== cur) {
-            updateEntryStatus(this.dataRootFn(), entry.id, next);
-            entry.status = next;
+        const item = this.queue[this.queueIndex];
+        if (!item) {
+            return;
         }
-        this.poolIndex++;
-        this.sendNextReview();
+        const dataRoot = this.dataRootFn();
+        const today = todayKey();
+        const { states } = loadReviewStates(dataRoot);
+        const next = gradeState(stateOf(states, item.lemma, today), grade, today);
+        states.set(item.lemma, next);
+        saveReviewStates(dataRoot, states);
+
+        this.reviewedThisSession += 1;
+        this.queueIndex += 1;
+        if (grade === 'again') {
+            // 忘了 → 今天再见一次（放到本次队列末尾，而不是等到明天）
+            this.queue.push(item);
+        }
+
         this.sendData();
+        this.sendNextReview();
     }
 
     private post(msg: any): void {

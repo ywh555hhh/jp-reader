@@ -2,7 +2,7 @@
   "name": "jp-reader",
   "displayName": "JP Reader",
   "description": "日语 Markdown 阅读扩展：离线分词、可配置高亮规则引擎、划词查词/朗读/语境收集/复习",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "local",
   "engines": {
     "vscode": "^1.91.0"
@@ -135,6 +135,12 @@
           "type": "boolean",
           "default": false,
           "description": "Markdown 预览是否显示振假名（ruby 注音）"
+        },
+        "jpReader.newWordsPerDay": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "description": "复习时每天最多引入多少个新词（0 = 只复习已学过的词）"
         }
       }
     }

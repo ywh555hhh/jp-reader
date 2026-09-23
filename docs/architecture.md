@@ -45,8 +45,9 @@ rules_config.json          高亮规则（改这里就应该立即生效，不�
 providers_config.json      翻译/朗读/讲解的 provider 选择
 vocab/lemma_wtype.tsv      lemma → 語種
 vocab/lemma_mapping.tsv    kuromoji lemma ↔ CEJC lemma
-vocab/my_collection.tsv    个人收集词条（唯一会被写的文件）
+vocab/my_collection.tsv    个人收集词条（按"条目"：一个词可以有多条语境）
 vocab/my_collection_lemmas.txt  派生文件：供规则引擎按文件加载
+vocab/review_state.tsv     复习状态（按"lemma"：每个词只有一条，间隔重复的调度依据）
 texts/                     课文
 ```
 
@@ -147,12 +148,20 @@ texts/                     课文
    （配置读写在 `providerModel.ts`，它是纯的）。所以**朗读也只向 provider 要 URL**，
    自己不再拼 URL —— 以前同一串 Google TTS URL 在三个文件里各写了一份。
    新增需要网络的能力时，先往 provider 里加一个 kind，不要在调用方直接发请求。
-6. **可变状态只允许出现在 `appContext.ts`（否命题 A10）。**
+6. **复习调度是纯函数，复习状态是独立数据集。**
+   `reviewSchedule.ts` 不读文件、不认识 vscode、"今天"由调用方传入（`todayKey()`）——
+   所以间隔序列可以被确定性地单测（"记住了"的间隔是 1 → 3 → 8 → 20 天，写在测试里）。
+   `reviewStore.ts` 把状态存在 `vocab/review_state.tsv`，与 `my_collection.tsv` **分开**：
+   前者按 lemma（一个词一条），后者按条目（一个词多条语境）。粒度不同就别混一张表，
+   否则迟早出现"同一个词两条记录状态不一致"。落盘走 `atomicWrite`（A20）。
+   改调度算法时：先改 `tests/reviewSchedule.test.mjs` 里的序列断言，再改实现。
+7. **可变状态只允许出现在 `appContext.ts`（否命题 A10）。**
    “当前是什么”这类事实——规则表、数据根、词典目录、密钥读取器、provider 配置、
    tokenizer 缓存、阅读视图会话——一律从 ctx 取；功能模块不要新增模块级 `let`。
    `provider.ts` 本身是**无状态**的（配置与密钥通过 `ProviderRuntime` 传入），
    因为 ctx 已经依赖 provider，反过来依赖会形成循环。
    新增一个可变事实时先问：它属于 ctx，还是其实应该当作参数传下去？
+   （复习状态不在 ctx 里 —— 它是**数据**，存在数据根的 TSV 里，不是进程内状态。）
 
 ## 指标与预算
 
