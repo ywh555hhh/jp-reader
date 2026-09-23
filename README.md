@@ -174,6 +174,9 @@ code --install-extension jp-reader-0.2.0.vsix --force
 
 1. **出网只有一个出口**（`provider.ts`）。翻译 / 朗读 / AI 讲解都走同一套配置与错误处理，
    所以 `explain.active = "off"` 对命令面板和阅读视图**同时**生效。
+   翻译 / 讲解的开关**就在这里**（`active`），不在 VS Code 设置里 —— 设置里只有
+   `dataRoot` / `enableTTS` / `enableFurigana` / `aiApiKey`（仅用于一次性迁移）四项，
+   而且 `declared-settings-are-read` 这条护栏会保证"声明的设置都真的有人读"。
 2. **密钥只放密钥存储。** 配置里写 `apiKeySecret`（键名），值用命令
    `JP Reader: 设置 Provider 密钥` 写入 VS Code 的 SecretStorage，不进 settings、不进配置文件。
 3. **`promptTemplate` 对 http provider 也生效**（`{text}` / `{sentence}` / `{lemma}` 占位符）。

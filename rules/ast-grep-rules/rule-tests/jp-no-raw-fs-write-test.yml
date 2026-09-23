@@ -1,0 +1,15 @@
+# jp-no-raw-fs-write 的语义测试。
+# 关键：具名导入的调用形式必须**不命中**（那正是 atomicFile.ts 的写法），
+# 否则唯一的例外也得靠豁免，规则就变成了噪音。
+id: jp-no-raw-fs-write
+valid:
+  - "import { writeFileSync } from 'fs'; writeFileSync(path, content, 'utf-8');"
+  - "atomicWrite(path, content);"
+  - "fs.readFileSync(path, 'utf-8');"
+  - "fs.existsSync(path);"
+  - "fs.renameSync(tmp, path);"
+invalid:
+  - "fs.writeFileSync(path, content);"
+  - "fs.appendFileSync(path, line);"
+  - "fsp.createWriteStream(path);"
+  - "nodeFs.writeFile(path, content, cb);"

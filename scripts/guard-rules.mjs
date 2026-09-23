@@ -208,6 +208,29 @@ export function runChecks(root = ROOT) {
     `当前 ${invariants.length} 条`
   );
 
+  // 8) 声明的设置项必须真的被代码读取。
+  //    声明了却没人实现 = 假承诺：用户设了不会有任何反应（本项目刚清理掉 5 个这种设置）。
+  // ⚠ 要读的是扩展的 package.json，不是仓库根的（根那份没有 contributes）
+  const extPkg = readJson('vscode-extension/package.json');
+  const settings = Object.keys(extPkg.contributes?.configuration?.properties || {});
+  const srcText = listSourceFiles(root)
+    .map((f) => fs.readFileSync(f, 'utf8'))
+    .join('\n');
+  const unreadSettings = settings.filter((key) => {
+    const short = key.replace(/^jpReader\./, '');
+    return !new RegExp(`get(?:<[^>]*>)?\\(\\s*'${short}'`).test(srcText);
+  });
+  add(
+    'declared-settings-are-read',
+    '扩展 package.json 里声明的设置项都必须被代码读取',
+    settings.length > 0 && unreadSettings.length === 0,
+    unreadSettings.length > 0
+      ? unreadSettings.length > 0
+        ? `没有任何代码读取：${unreadSettings.join(', ')}（要么实现它，要么删掉声明）`
+        : '没有解析到任何设置项声明 —— 说明这个检查自己坏了，不能算通过'
+      : `当前 ${settings.length} 项都被读取`
+  );
+
   // 8) 构建产物不许进版本库
   const gitignore = fs.existsSync(path.join(root, '.gitignore'))
     ? fs.readFileSync(path.join(root, '.gitignore'), 'utf8')

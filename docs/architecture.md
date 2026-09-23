@@ -76,7 +76,7 @@ texts/                     课文
 | A6 | 定位一次出现必须用真实 offset，禁止 `indexOf(surface)` 反查 | 反查只能拿到全文第一次出现，同词多次出现时会静默存错原句 | astgrep:jp-no-indexof-position-lookup |
 | A7 | 禁止用当前时间当持久化主键（规则只看 id 语境；时间戳当普通字段是允许的） | 毫秒级时间戳在批量写入时必然撞 id，之后按 id 的更新/删除会一次命中多行 | astgrep:jp-no-date-as-identity |
 | A8 | 禁止完全空的 `catch` 块 | 空 catch 是让报错消失的最短路径，也是同类 bug 反复复发的根因 | astgrep:jp-no-empty-catch |
-| A9 | 裸写文件只允许出现在唯一一个模块 | 写文件散开就无法保证原子性（本项目现存的 `writeFileSync` 崩溃即丢整个词库） | metric:files_with_raw_writes |
+| A9 | 裸写文件只允许出现在唯一一个模块 | 写文件散开就无法保证原子性。本项目曾经就是直接 `writeFileSync` 覆盖：崩在半路会丢掉整份词库 | metric:files_with_raw_writes |
 | A10 | 模块级可变状态不得扩散 | 同一事实被多条路径各自持有，是"一件事被实现三遍"的根因 | metric:files_with_module_level_state |
 | A11 | 同一能力不得有第二处实现 | 重复实现是屎山最常见的形态，且不会有人主动删 | metric:capability_url_extra_copies |
 | A12 | 违规计数非零必须挂 issue | 无主债务等于永久债务；挂 issue 是唯一的"合法申请通道" | metric:frozen_metrics_without_issue |
@@ -87,6 +87,8 @@ texts/                     课文
 | A17 | 死代码（未用文件/导出/依赖）必须为零 | 死导出会被下一个 agent 当成 API 来用 | metric:knip_issues |
 | A18 | 重复代码行数只降不升 | 重复块会随功能一起演化，成本是平方级的 | metric:jscpd_duplicated_lines |
 | A19 | 超过 350 行的源文件数只降不升 | 用阈值计数而不是总行数，避免"加一行就红"把棘轮变成背景噪音 | metric:files_over_350_lines |
+| A20 | 写盘必须原子（临时文件 → fsync → rename），禁止 `fs.*` 形式的裸写 | 数据文件是用户的唯一副本；就地覆盖中途失败会把它截断，而 rename 在同一目录内是原子的 | astgrep:jp-no-raw-fs-write |
+| A21 | 扩展声明的每个设置项都必须被代码读取 | 声明了却没人实现 = 假承诺：用户设了不会有任何反应（曾经有 5 个这种设置） | check:declared-settings-are-read |
 
 ---
 

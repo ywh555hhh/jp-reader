@@ -256,9 +256,13 @@ export function guardCheckIds(root = ROOT) {
   if (!fs.existsSync(file)) {
     return new Set();
   }
-  return new Set(
-    [...fs.readFileSync(file, 'utf8').matchAll(/id:\s*'([a-z0-9-]+)'/g)].map((m) => m[1])
-  );
+  const text = fs.readFileSync(file, 'utf8');
+  // 两种登记形式都要认：对象字面量的 id: 'x'，以及 add('x', ...) 调用。
+  // 只认前者会让"用 add() 登记的检查"在文档里无法被引用 —— 那本身就是个坑。
+  return new Set([
+    ...[...text.matchAll(/id:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]),
+    ...[...text.matchAll(/\badd\(\s*'([a-z0-9-]+)'/g)].map((m) => m[1]),
+  ]);
 }
 
 /** 执法者 token 只有 4 种前缀，每一种都必须能被机械解析到真实存在的东西 */

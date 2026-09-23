@@ -3,6 +3,7 @@ out/
 *.vsix
 .vscode/
 .reports/
+*.tmp            # atomicWrite 的临时文件（正常情况下不会留下）
 *.tsbuildinfo
 
 # ⚠ 本仓库只放代码 —— 数据根不进版本库（见 README「代码与数据分开」）
